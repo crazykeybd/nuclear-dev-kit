@@ -1,0 +1,152 @@
+name: install-check
+
+# 检查「拿到分发包的人」会走的路径：打包 → 解压 → 安装 → 检查 → 重复安装 → 注册。
+# 全部在临时目录里进行，不触碰 runner 上真实的用户配置。
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 代码没变也可能坏：新 Python 或新 runner 镜像会改变路径与默认编码
+    - cron: "17 21 * * *"
+  push:
+    paths:
+      - "skills/**"
+      - "tools/**"
+      - "tests/**"
+      - ".github/workflows/install-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      REASONIX_HOME: ${{ runner.temp }}/reasonix-home
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 打包并解压到全新目录
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/build_dist.py --output "$RUNNER_TEMP/dist" --json
+          ZIP=$(python -c "import glob, os; print(glob.glob(os.path.join(os.environ['RUNNER_TEMP'], 'dist', '*.zip'))[0])")
+          python -m zipfile -e "$ZIP" "$RUNNER_TEMP/pkg"
+          PKG="$RUNNER_TEMP/pkg/nuclear-dev-kit"
+          test -f "$PKG/skills/nuclear-setup/scripts/install.py"
+          echo "PKG=$PKG" >> "$GITHUB_ENV"
+
+      - name: 未安装时检查器报 not_deployed
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$REASONIX_HOME"
+          test ! -d "$REASONIX_HOME/skills"
+          STATUS=$(python "$PKG/tools/check_reasonix_deploy.py" --json \
+            | python -c "import json, sys; print(json.load(sys.stdin)['status'])")
+          test "$STATUS" = "not_deployed"
+
+      - name: 安装十个 Skill
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$PKG/skills/nuclear-install/scripts/quickinstall.py" reasonix --scope global --yes --json \
+            > "$RUNNER_TEMP/install.json"
+          python - "$RUNNER_TEMP/install.json" <<'PY'
+          import json, sys
+          payload = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert payload["ok"], payload
+          assert payload["status"] == "installed", payload
+          assert payload["skill_count"] == 10, payload
+          print("installed", payload["skill_count"], "skills")
+          PY
+
+      - name: 装完 Skill 但未注册 MCP 时报 config_missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$PKG/tools/check_reasonix_deploy.py" --json > "$RUNNER_TEMP/deploy.json" || true
+          python - "$RUNNER_TEMP/deploy.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert report["status"] == "config_missing", report
+          assert not report["missing_skills"] and not report["changed_skills"], report
+          print("config_missing with all skills in place")
+          PY
+
+      - name: 重复安装被拒绝而不是静默覆盖
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python "$PKG/skills/nuclear-install/scripts/quickinstall.py" reasonix --scope global --yes --json \
+            > "$RUNNER_TEMP/reinstall.json"
+          code=$?
+          set -e
+          test "$code" = "1"
+          python - "$RUNNER_TEMP/reinstall.json" <<'PY'
+          import json, sys
+          payload = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert payload["status"] == "conflict", payload
+          print("conflict as expected")
+          PY
+
+      - name: 强制升级会先备份且 Skill 数量不变
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$PKG/skills/nuclear-install/scripts/quickinstall.py" reasonix --scope global \
+            --yes --force --json > "$RUNNER_TEMP/upgrade.json"
+          python - "$RUNNER_TEMP/upgrade.json" "$REASONIX_HOME" <<'PY'
+          import json, pathlib, sys
+          payload = json.load(open(sys.argv[1], encoding="utf-8"))
+          home = pathlib.Path(sys.argv[2])
+          assert payload["ok"], payload
+          assert payload["status"] == "installed", payload
+          assert len(payload["install"]["backups"]) == 10, payload["install"]["backups"]
+          skills = sorted(p.name for p in (home / "skills").iterdir()
+                          if p.is_dir() and p.name.startswith("nuclear-"))
+          assert len(skills) == 10, skills
+          print("upgrade kept", len(skills), "skills,", len(payload["install"]["backups"]), "backups")
+          PY
+
+      - name: 注册 MCP 后 config.toml 仍可解析且没有残留临时文件
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > "$REASONIX_HOME/config.toml"
+          python "$PKG/skills/nuclear-install/scripts/register.py" reasonix --scope global --write --json \
+            > "$RUNNER_TEMP/register.json"
+          python - "$REASONIX_HOME" <<'PY'
+          import pathlib, sys, tomllib
+          home = pathlib.Path(sys.argv[1])
+          text = (home / "config.toml").read_text(encoding="utf-8")
+          plugins = tomllib.loads(text)["plugins"]
+          assert [item["name"] for item in plugins] == ["nuclear-dev"], plugins
+          leftovers = [str(p) for p in home.rglob("*.tmp")]
+          assert not leftovers, leftovers
+          assert "added by nuclear-dev-kit register.py" in text
+          print("config.toml ok")
+          PY
+
+      - name: 注册后检查器报 up_to_date
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$PKG/tools/check_reasonix_deploy.py" --json > "$RUNNER_TEMP/final.json"
+          python - "$RUNNER_TEMP/final.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert report["ok"] and report["status"] == "up_to_date", report
+          print("up_to_date")
+          PY

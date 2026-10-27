@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nuclear-dev-kit-marketplace",
+  "description": "核能数值软件七阶段研发门禁与工程能力",
+  "owner": {
+    "name": "Reasonix"
+  },
+  "plugins": [
+    {
+      "name": "nuclear-dev-kit",
+      "source": "./",
+      "version": "0.1.0",
+      "description": "核能数值软件七阶段研发门禁与工程能力",
+      "category": "nuclear-software"
+    }
+  ]
+}

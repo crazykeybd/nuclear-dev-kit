@@ -1,0 +1,140 @@
+{
+  "generated_by": "tools/gen_catalog.py",
+  "kit": {
+    "name": "nuclear-dev-kit",
+    "schema_version": 1,
+    "version": "0.1.0"
+  },
+  "mcp": {
+    "tools": [
+      "nuclear_evidence_list",
+      "nuclear_gate",
+      "nuclear_read_artifact",
+      "nuclear_schema",
+      "nuclear_status",
+      "nuclear_validate"
+    ],
+    "write_tools": [
+      "nuclear_a2a_send",
+      "nuclear_evidence_add",
+      "nuclear_init",
+      "nuclear_manifest"
+    ]
+  },
+  "skills": [
+    {
+      "description": "核能数值软件设计 Skill。用于把 REQ 需求分配为 DES 设计项，并记录架构、控制方程、离散格式、稳定性、守恒、误差分析和验证计划。",
+      "license": "MIT",
+      "name": "nuclear-design",
+      "path": "skills/nuclear-design/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "description": "核能数值软件七阶段研发总入口。用于启动或继续软件策划、需求分析、软件设计、编码实现、软件测试、独立 V&V、软件发布，并统一执行证据、追溯和人工批准门禁。",
+      "license": "MIT",
+      "name": "nuclear-dev",
+      "path": "skills/nuclear-dev/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "description": "核能数值软件实现 Skill。用于将 DES 设计落实为真实源码 MOD 模块，保持源码工作区干净，执行可复现构建并登记构建证据。",
+      "license": "MIT",
+      "name": "nuclear-implementation",
+      "path": "skills/nuclear-implementation/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "description": "nuclear-dev-kit 的便捷安装、升级与部署入口。自动检测宿主，预览后把全部 Skill 安装到 Claude Code、Codex、opencode、Reasonix 或通用 Agent，可顺带初始化项目工作区并验证。用户说“安装这个包”“怎么部署”“升级 Skill”“装到某个宿主”时使用。",
+      "license": "MIT",
+      "name": "nuclear-install",
+      "path": "skills/nuclear-install/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "description": "核能数值软件研发的第一阶段 Skill。用于确定安全分级、V&V 等级、适用标准、工具鉴定、人员资格、配置管理、开放项和独立 V&V 策略，并建立可审计的策划基线。",
+      "license": "MIT",
+      "name": "nuclear-plan",
+      "path": "skills/nuclear-plan/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "description": "核能数值软件发布 Skill。用于冻结语义版本、源码 revision、发布范围、SBOM、复现与回滚证据，并在递归门禁通过后生成确定性配置清单。",
+      "license": "MIT",
+      "name": "nuclear-release",
+      "path": "skills/nuclear-release/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "description": "核能数值软件需求分析 Skill。用于把物理模型、数值精度、适用范围、接口、安全约束和验收方法写成可验证、可确认、可分配设计的 REQ 需求基线。",
+      "license": "MIT",
+      "name": "nuclear-requirements",
+      "path": "skills/nuclear-requirements/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "description": "初始化核能软件开发工作区并安装七阶段 Skill 包。用于新项目建立 .nuclear-dev 门禁目录，或在 Claude Code、Codex、opencode、Reasonix 和通用代理中部署受控研发流程。",
+      "license": "MIT",
+      "name": "nuclear-setup",
+      "path": "skills/nuclear-setup/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "description": "核能数值软件测试 Skill。用于设计并执行单元、模型和系统测试，覆盖守恒、边界、负向与回归，登记真实结果并证明每个 MOD 和 REQ 均被检验。",
+      "license": "MIT",
+      "name": "nuclear-test",
+      "path": "skills/nuclear-test/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "description": "核能数值软件独立验证与确认 Skill。用于执行代码验证、解的验证和确认，记录参考解、收敛阶、基准来源、误差、适用域、不确定性与独立性。",
+      "license": "MIT",
+      "name": "nuclear-vv",
+      "path": "skills/nuclear-vv/SKILL.md",
+      "version": "0.1.0"
+    }
+  ],
+  "stages": [
+    {
+      "artifact": "stages/plan/plan.json",
+      "name": "plan",
+      "order": 1,
+      "skill": "nuclear-plan"
+    },
+    {
+      "artifact": "stages/requirements/requirements.json",
+      "name": "requirements",
+      "order": 2,
+      "skill": "nuclear-requirements"
+    },
+    {
+      "artifact": "stages/design/design.json",
+      "name": "design",
+      "order": 3,
+      "skill": "nuclear-design"
+    },
+    {
+      "artifact": "stages/implementation/implementation.json",
+      "name": "implementation",
+      "order": 4,
+      "skill": "nuclear-implementation"
+    },
+    {
+      "artifact": "stages/test/test-report.json",
+      "name": "test",
+      "order": 5,
+      "skill": "nuclear-test"
+    },
+    {
+      "artifact": "stages/vv/vv-report.json",
+      "name": "vv",
+      "order": 6,
+      "skill": "nuclear-vv"
+    },
+    {
+      "artifact": "stages/release/release.json",
+      "name": "release",
+      "order": 7,
+      "skill": "nuclear-release"
+    }
+  ]
+}

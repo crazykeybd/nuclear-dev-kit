@@ -1,0 +1,9 @@
+{
+  "apiVersion": "reasonix.io/plugin/v2",
+  "name": "nuclear-dev-kit",
+  "version": "0.1.0",
+  "description": "核能数值软件七阶段研发门禁与工程能力",
+  "contributes": {
+    "skills": ["skills"]
+  }
+}

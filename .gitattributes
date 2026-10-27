@@ -1,0 +1,3 @@
+# 仓库统一 UTF-8 + LF：Windows 检出也不得把换行改写成 CRLF
+# tests/test_skill_limits.py 会校验 SKILL.md 不含 CRLF，CI 在 Linux 上同样会失败
+* text=auto eol=lf

@@ -1,0 +1,13 @@
+{
+  "name": "nuclear-dev-kit",
+  "version": "0.1.0",
+  "description": "核能数值软件七阶段研发门禁与工程能力",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "核能软件开发",
+    "shortDescription": "七阶段核能数值软件研发、证据与独立 V&V 门禁",
+    "longDescription": "面向核能数值软件的受控研发 Skill 包，覆盖策划、需求、设计、实现、测试、独立 V&V 与发布。",
+    "developerName": "Reasonix",
+    "category": "Productivity"
+  }
+}
