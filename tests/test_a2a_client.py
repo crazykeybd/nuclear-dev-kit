@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 import http.server
 import json
+import os
 import tempfile
 import threading
 import unittest
@@ -35,6 +36,9 @@ def write_key_file(path: Path, agent_id: str, peer: str, keyid: str = "key-1", s
         ],
     }
     path.write_text(json.dumps(payload), encoding="utf-8")
+    if os.name != "nt":
+        # KeyStore 在 POSIX 上要求密钥文件 0600；默认 umask 会写成 0644
+        os.chmod(str(path), 0o600)
 
 
 def write_policy(project: Path) -> None:

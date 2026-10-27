@@ -46,9 +46,21 @@ jobs:
         with:
           python-version: "3.12"
       - name: 无网络时测试仍然通过
-        run: python -m unittest discover -s tests
+        run: |
+          python - <<'PY'
+          import urllib.request
+          try:
+              urllib.request.urlopen("https://example.com", timeout=5)
+          except Exception:
+              print("外部访问已被阻断")
+          else:
+              raise SystemExit("代理未生效：外网仍可达，断网任务没有意义")
+          PY
+          python -m unittest discover -s tests
         env:
-          # 让所有套接字连接立即失败，任何隐藏的网络依赖都会暴露。
+          # 让外部 HTTP 访问立即失败，任何隐藏的网络依赖都会暴露。
           # 只写小写：Actions 的 env 键大小写不敏感，http_proxy 与 HTTP_PROXY 同时出现会被判为重复键。
+          # no_proxy 必须放行 localhost：A2A/MCP 用例本来就要在本机起监听端口。
           http_proxy: http://127.0.0.1:1
           https_proxy: http://127.0.0.1:1
+          no_proxy: 127.0.0.1,localhost
