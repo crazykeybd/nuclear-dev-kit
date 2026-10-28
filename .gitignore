@@ -4,3 +4,8 @@ __pycache__/
 dist/
 .nuclear-dev/
 .nuclear-dev-kit-backups/
+
+# 根目录只允许 README.md 与 INSTALL.md 入库，其余 md 属于内部文档
+/*.md
+!/README.md
+!/INSTALL.md
