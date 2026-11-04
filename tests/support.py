@@ -136,6 +136,15 @@ def run_install(project: Path, *argv: str) -> Tuple[int, Dict[str, Any], str]:
     return completed.returncode, parse_json(completed.stdout), completed.stderr
 
 
+def same_path(left, right) -> bool:
+    """比较两个路径是否指向同一位置。
+
+    Windows 上临时目录常以 8.3 短名（RUNNER~1）出现，而安装器返回的是 resolve()
+    之后的长名；直接比较 Path 会假失败，因此两边都规范化后再比。
+    """
+    return os.path.normcase(str(Path(left).resolve())) == os.path.normcase(str(Path(right).resolve()))
+
+
 def write_text(path: Path, text: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="\n") as stream:

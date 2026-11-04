@@ -171,8 +171,9 @@ class DshRegisterSnippetTest(unittest.TestCase):
         """片段里的 server 路径与解释器能真的握手；不依赖任何 YAML 解析器。"""
         payload = self.snippet("--scope", "project")
         server = payload["server_path"]
-        self.assertIn(server, payload["snippet"])
-        self.assertIn(payload["python"], payload["snippet"])
+        # 片段是 YAML，Windows 上的反斜杠会被转义，因此按 JSON 转义形式比对。
+        self.assertIn(json.dumps(server, ensure_ascii=False), payload["snippet"])
+        self.assertIn(json.dumps(payload["python"], ensure_ascii=False), payload["snippet"])
         process = subprocess.Popen(
             [payload["python"], server, "--workspace", str(self.project)],
             stdin=subprocess.PIPE,
@@ -210,7 +211,9 @@ class DshInstallLayoutTest(unittest.TestCase):
             self.assertEqual(len(payload["targets"]), self.NAMES)
             for target in payload["targets"]:
                 destination = Path(target["destination"])
-                self.assertEqual(destination.parent, project / ".dsh" / "skills")
+                self.assertTrue(
+                    support.same_path(destination.parent, project / ".dsh" / "skills"), target
+                )
                 self.assertTrue((destination / "SKILL.md").is_file())
 
     def test_global_scope_uses_dsh_home(self) -> None:
@@ -222,10 +225,12 @@ class DshInstallLayoutTest(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             payload = support.parse_json(completed.stdout)
-            root = Path(temp).resolve() / "skills"
+            root = Path(temp) / "skills"
             self.assertEqual(len(payload["targets"]), self.NAMES)
             for target in payload["targets"]:
-                self.assertEqual(Path(target["destination"]).parent, root)
+                self.assertTrue(
+                    support.same_path(Path(target["destination"]).parent, root), target
+                )
 
 
 if __name__ == "__main__":

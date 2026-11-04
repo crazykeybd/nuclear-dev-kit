@@ -156,7 +156,7 @@ def dsh_patch_snippet(python: str, arguments: Sequence[str]) -> str:
         "      config:",
         "        serverName: %s" % SERVER_NAME,
         "        transport: stdio",
-        "        command: %s" % python,
+        "        command: %s" % json.dumps(python, ensure_ascii=False),
         "        args:",
     ]
     for arg in arguments:

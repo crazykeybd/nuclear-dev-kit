@@ -18,7 +18,9 @@ from test_a2a_client import CARD_ORG, FakeA2A, SPEC, write_key_file
 class McpA2ASendTest(unittest.TestCase):
     def setUp(self) -> None:
         self._temp = tempfile.TemporaryDirectory()
-        self.root = Path(self._temp.name)
+        # 取 resolve() 后的路径：Windows 上临时目录可能是 8.3 短名，
+        # 而 bundle_dir 是解析后的长名，直接 relative_to 会 ValueError。
+        self.root = Path(self._temp.name).resolve()
         support.build_valid_project(self.root)
         write_policy(self.root)
         self._other = tempfile.TemporaryDirectory()

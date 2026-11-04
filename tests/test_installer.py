@@ -112,7 +112,9 @@ class InstallerTest(unittest.TestCase):
         self.assertEqual(code, 0, err)
         root = self.project / ".reasonix" / "skills"
         for target in payload["targets"]:
-            self.assertEqual(Path(target["destination"]).parent, root)
+            self.assertTrue(
+                support.same_path(Path(target["destination"]).parent, root), target
+            )
 
     def test_reasonix_global_honors_reasonix_home(self) -> None:
         with tempfile.TemporaryDirectory() as reasonix_home:
@@ -123,9 +125,11 @@ class InstallerTest(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             payload = support.parse_json(completed.stdout)
-            root = Path(reasonix_home).resolve() / "skills"
+            root = Path(reasonix_home) / "skills"
             for target in payload["targets"]:
-                self.assertEqual(Path(target["destination"]).parent, root)
+                self.assertTrue(
+                    support.same_path(Path(target["destination"]).parent, root), target
+                )
 
 
     def test_dsh_project_uses_dot_dsh(self) -> None:
@@ -135,7 +139,9 @@ class InstallerTest(unittest.TestCase):
         self.assertEqual(code, 0, err)
         root = self.project / ".dsh" / "skills"
         for target in payload["targets"]:
-            self.assertEqual(Path(target["destination"]).parent, root)
+            self.assertTrue(
+                support.same_path(Path(target["destination"]).parent, root), target
+            )
 
     def test_dsh_global_honors_dsh_home(self) -> None:
         with tempfile.TemporaryDirectory() as dsh_home:
@@ -146,9 +152,11 @@ class InstallerTest(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             payload = support.parse_json(completed.stdout)
-            root = Path(dsh_home).resolve() / "skills"
+            root = Path(dsh_home) / "skills"
             for target in payload["targets"]:
-                self.assertEqual(Path(target["destination"]).parent, root)
+                self.assertTrue(
+                    support.same_path(Path(target["destination"]).parent, root), target
+                )
 
 
 class QuickInstallTest(unittest.TestCase):
