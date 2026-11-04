@@ -19,13 +19,14 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = SKILL_DIR.parents[1]
 SOURCE_SERVER = PACKAGE_ROOT / "skills" / "nuclear-dev" / "scripts" / "nuclearmcp.py"
 SERVER_NAME = "nuclear-dev"
-HOSTS = ["claude", "codex", "opencode", "reasonix", "generic"]
+HOSTS = ["claude", "codex", "opencode", "reasonix", "generic", "dsh"]
 HOST_LABELS = {
     "claude": "Claude Code",
     "codex": "Codex",
     "opencode": "opencode",
     "reasonix": "Reasonix",
     "generic": "通用 MCP 客户端",
+    "dsh": "DeepSeek Harness",
 }
 UNSUPPORTED_HOSTS = {
     "opencode": (
@@ -38,6 +39,7 @@ PROJECT_SKILL_ROOTS = {
     "codex": Path(".agents") / "skills",
     "reasonix": Path(".reasonix") / "skills",
     "generic": Path(".agents") / "skills",
+    "dsh": Path(".dsh") / "skills",
 }
 
 
@@ -79,6 +81,7 @@ def global_skill_roots() -> Dict[str, Path]:
         "codex": environment_root("CODEX_HOME", home / ".codex") / "skills",
         "reasonix": reasonix_home() / "skills",
         "generic": home / ".agents" / "skills",
+        "dsh": environment_root("DSH_HOME", home / ".dsh") / "skills",
     }
 
 
@@ -142,6 +145,22 @@ def reasonix_plugin_snippet(python: str, arguments: Sequence[str]) -> str:
         "command = %s" % toml_string(python),
         "args = [%s]" % ", ".join(toml_string(item) for item in arguments),
     ]
+    return "\n".join(lines) + "\n"
+
+
+def dsh_patch_snippet(python: str, arguments: Sequence[str]) -> str:
+    lines = [
+        "- insert:",
+        "    - id: mcp-nuclear-dev",
+        "      name: '@deepseek-ai/dsh-mcp-client'",
+        "      config:",
+        "        serverName: %s" % SERVER_NAME,
+        "        transport: stdio",
+        "        command: %s" % json.dumps(python, ensure_ascii=False),
+        "        args:",
+    ]
+    for arg in arguments:
+        lines.append("          - %s" % json.dumps(arg, ensure_ascii=False))
     return "\n".join(lines) + "\n"
 
 
@@ -331,6 +350,10 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
                 payload["notes"].append(
                     "把 [[plugins]] 片段追加到 Reasonix 的 config.toml；加 --write 可自动追加（写入前备份）。"
                 )
+    elif args.host == "dsh":
+        payload["format"] = "yaml"
+        payload["snippet"] = dsh_patch_snippet(python, arguments)
+        payload["notes"].append("DeepSeek Harness 补丁配置：可合并到 cordis.patch.yml 或通过 dsh --patch 挂载。")
     else:
         payload["format"] = "json"
         payload["snippet"] = neutral_spec(python, arguments)

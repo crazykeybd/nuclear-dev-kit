@@ -91,6 +91,9 @@ def child_env() -> Dict[str, str]:
     env["XDG_CONFIG_HOME"] = str(home / ".config")
     env.pop("REASONIX_HOME", None)
     env.pop("CODEX_HOME", None)
+    # DSH 自身会注入 DSH_HOME；不隔离就会让全局范围的用例写进真实的 ~/.dsh。
+    env.pop("DSH_HOME", None)
+    env.pop("DSH_AGENTS_HOME", None)
     return env
 
 
@@ -131,6 +134,15 @@ def ctl(root: Path, *argv: str) -> Tuple[int, Dict[str, Any], str]:
 def run_install(project: Path, *argv: str) -> Tuple[int, Dict[str, Any], str]:
     completed = run_script(INSTALL, ["--project", str(project)] + [str(item) for item in argv])
     return completed.returncode, parse_json(completed.stdout), completed.stderr
+
+
+def same_path(left, right) -> bool:
+    """比较两个路径是否指向同一位置。
+
+    Windows 上临时目录常以 8.3 短名（RUNNER~1）出现，而安装器返回的是 resolve()
+    之后的长名；直接比较 Path 会假失败，因此两边都规范化后再比。
+    """
+    return os.path.normcase(str(Path(left).resolve())) == os.path.normcase(str(Path(right).resolve()))
 
 
 def write_text(path: Path, text: str) -> Path:

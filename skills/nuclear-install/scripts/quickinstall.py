@@ -16,13 +16,14 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 SKILLS_ROOT = SKILL_DIR.parent
 INSTALLER = SKILLS_ROOT / "nuclear-setup" / "scripts" / "install.py"
 NUCLEARCTL = SKILLS_ROOT / "nuclear-dev" / "scripts" / "nuclearctl.py"
-HOSTS = ["claude", "codex", "opencode", "reasonix", "generic"]
+HOSTS = ["claude", "codex", "opencode", "reasonix", "generic", "dsh"]
 HOST_LABELS = {
     "claude": "Claude Code",
     "codex": "Codex",
     "opencode": "opencode",
     "reasonix": "Reasonix",
     "generic": "通用 Agent",
+    "dsh": "DeepSeek Harness",
     "all": "全部宿主",
 }
 
@@ -126,12 +127,14 @@ def host_marker_candidates(project: Path, scope: str) -> List[Tuple[str, Path, s
             ("codex", project / ".agents", "项目中的 .agents 目录"),
             ("opencode", project / ".opencode", "项目中的 .opencode 目录"),
             ("reasonix", project / ".reasonix", "项目中的 .reasonix 目录"),
+            ("dsh", project / ".dsh", "项目中的 .dsh 目录"),
         ]
         secondary = [
             ("claude", home / ".claude", "本机 ~/.claude 目录"),
             ("codex", home / ".codex", "本机 ~/.codex 目录"),
             ("opencode", home / ".config" / "opencode", "本机 ~/.config/opencode 目录"),
             ("reasonix", home / ".reasonix", "本机 ~/.reasonix 目录"),
+            ("dsh", home / ".dsh", "本机 ~/.dsh 目录"),
         ]
     else:
         primary = [
@@ -140,12 +143,14 @@ def host_marker_candidates(project: Path, scope: str) -> List[Tuple[str, Path, s
             ("opencode", home / ".config" / "opencode", "本机 ~/.config/opencode 目录"),
             ("reasonix", reasonix_home(), "本机 Reasonix home 目录"),
             ("generic", home / ".agents", "本机 ~/.agents 目录"),
+            ("dsh", home / ".dsh", "本机 ~/.dsh 目录"),
         ]
         secondary = [
             ("claude", project / ".claude", "项目中的 .claude 目录"),
             ("codex", project / ".agents", "项目中的 .agents 目录"),
             ("opencode", project / ".opencode", "项目中的 .opencode 目录"),
             ("reasonix", project / ".reasonix", "项目中的 .reasonix 目录"),
+            ("dsh", project / ".dsh", "项目中的 .dsh 目录"),
         ]
     return primary + secondary
 
@@ -166,6 +171,8 @@ def detect_hosts(project: Path, scope: str) -> Tuple[List[str], str]:
         add("codex", "检测到 CODEX_HOME")
     if os.environ.get("REASONIX_HOME"):
         add("reasonix", "检测到 REASONIX_HOME")
+    if os.environ.get("DSH_HOME") or os.environ.get("DSH_PROFILE"):
+        add("dsh", "检测到 DeepSeek Harness 环境变量")
     for host, marker, reason in host_marker_candidates(project, scope):
         if marker.is_dir() or marker.is_file():
             add(host, "检测到" + reason)

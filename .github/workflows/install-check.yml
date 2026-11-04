@@ -13,6 +13,8 @@ on:
       - "skills/**"
       - "tools/**"
       - "tests/**"
+      - "package.json"
+      - "cordis.patch.yml"
       - ".github/workflows/install-check.yml"
 
 permissions:
@@ -44,7 +46,44 @@ jobs:
           python -m zipfile -e "$ZIP" "$RUNNER_TEMP/pkg"
           PKG="$RUNNER_TEMP/pkg/nuclear-dev-kit"
           test -f "$PKG/skills/nuclear-setup/scripts/install.py"
+          # DeepSeek Harness bundle 的两个文件必须随包发布，否则 bundle 无法挂载
+          test -f "$PKG/package.json"
+          test -f "$PKG/cordis.patch.yml"
           echo "PKG=$PKG" >> "$GITHUB_ENV"
+
+      - name: DeepSeek Harness bundle 清单指向真实 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$PKG" <<'PY'
+          import json, pathlib, sys
+          pkg = pathlib.Path(sys.argv[1])
+          manifest = json.loads((pkg / "package.json").read_text(encoding="utf-8"))
+          patch = manifest["dsh"]["bundle"]["patch"]
+          assert (pkg / patch).is_file(), patch
+          text = (pkg / patch).read_text(encoding="utf-8")
+          assert "@deepseek-ai/dsh-mcp-client" in text, text
+          assert "serverName: nuclear-dev" in text, text
+          assert "--allow-write" not in text, "默认 patch 不得开放写入工具"
+          print("dsh bundle ok:", patch)
+          PY
+
+      - name: 安装到 DeepSeek Harness 项目级目录
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dsh-proj"
+          python "$PKG/skills/nuclear-setup/scripts/install.py" dsh --scope project \
+            --project "$RUNNER_TEMP/dsh-proj" --yes --json > "$RUNNER_TEMP/dsh-install.json"
+          python - "$RUNNER_TEMP/dsh-install.json" "$RUNNER_TEMP/dsh-proj" <<'PY'
+          import json, pathlib, sys
+          payload = json.load(open(sys.argv[1], encoding="utf-8"))
+          project = pathlib.Path(sys.argv[2])
+          assert payload["ok"] and payload["status"] == "installed", payload
+          installed = sorted(p.parent.name for p in (project / ".dsh" / "skills").glob("*/SKILL.md"))
+          assert len(installed) == 10, installed
+          print("dsh installed", len(installed), "skills")
+          PY
 
       - name: 未安装时检查器报 not_deployed
         shell: bash

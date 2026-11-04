@@ -16,6 +16,8 @@ INSTALL.md                 本教程
 SHA256SUMS.txt             所有文件的 SHA-256，用于校验传输完整性
 nuclear-dev-kit/
   README.md
+  package.json                   DeepSeek Harness bundle 清单
+  cordis.patch.yml               DeepSeek Harness 插件补丁配置
   reasonix-plugin.json           Reasonix 插件清单
   .claude-plugin/                Claude Code 插件清单
   .codex-plugin/                 Codex 插件清单
@@ -56,7 +58,7 @@ nuclear-dev-kit/
 | 网络 | 不需要。整套流程可完全离线运行 |
 | 磁盘 | 约 1 MB（压缩包约 200 KB） |
 | 操作系统 | Windows / Linux / macOS 均可 |
-| 宿主（可选） | Claude Code、Codex、opencode、Reasonix，或任何能读文件、能执行命令的 Agent |
+| 宿主（可选） | Claude Code、Codex、opencode、Reasonix、DeepSeek Harness，或任何能读文件、能执行命令的 Agent |
 
 ### 1.1 确认 Python
 
@@ -149,7 +151,7 @@ python3 <KIT>/skills/nuclear-install/scripts/quickinstall.py --json
 python3 <KIT>/skills/nuclear-install/scripts/quickinstall.py --yes --json
 ```
 
-- 默认 `global` 范围，自动检测宿主；未检测到时用 `--host claude|codex|opencode|reasonix|generic|all` 指定。
+- 默认 `global` 范围，自动检测宿主；未检测到时用 `--host claude|codex|opencode|reasonix|generic|dsh|all` 指定。
 - 默认 dry-run；只有 `--yes` 才写入。目标已存在时同样需要 `--force`。
 - 需要同时初始化工作区并验证：加 `--init --verify`，用 `--project` 指定项目根目录。
 - 下方 4.1–4.4 是等价的手动分步流程，排查问题时可逐步执行。
@@ -163,6 +165,7 @@ python3 <KIT>/skills/nuclear-install/scripts/quickinstall.py --yes --json
 | `opencode` | `<项目>/.opencode/skills` | `~/.config/opencode/skills` |
 | `reasonix` | `<项目>/.reasonix/skills` | `$REASONIX_HOME/skills`；Windows `%APPDATA%\reasonix\skills`；其他 `~/.reasonix/skills` |
 | `generic` | `<项目>/.agents/skills` | `~/.agents/skills` |
+| `dsh` | `<项目>/.dsh/skills` | `$DSH_HOME/skills` 或 `~/.dsh/skills` |
 | `all` | 以上全部，按绝对路径去重 | 同上 |
 
 - **项目级**：只在该项目里生效，适合一个项目一套流程。
@@ -247,9 +250,52 @@ python3 "$R" claude --scope project --project "$PWD" --allow-write --json
 - 默认只读；写入工具必须显式 `--allow-write`。
 - Codex 输出 TOML 片段，由你手工追加到 `config.toml`；本工具不为 Codex 写 TOML。
 - Reasonix 原生读取项目根 `.mcp.json`，项目级可直接 `--write`；全局范围可加 `--write` 自动追加 `[[plugins]]` 到 `%APPDATA%\reasonix\config.toml`（Windows）或 `~/.reasonix/config.toml`，写入前备份，同名插件已存在时拒绝重复写入。写入后还需在项目里执行一次 `reasonix mcp enable nuclear-dev`——仓库声明的 server 默认关闭，启用后进程在首次工具调用时启动。
+- DeepSeek Harness：用 `python3 "$R" dsh --project "$PWD"` 生成 bundle patch 片段；完整步骤见 4.6。
 - 注册后在新会话里确认 `tools/list` 返回 6 个只读工具，且不存在任何 `approve` 工具。
 
 A2A 面（远程 V&V）默认不启用：需要显式写导出策略、生成一次性令牌并配置对端，见 `skills/nuclear-dev/references/a2a.md`。
+
+### 4.6 DeepSeek Harness（DSH）部署
+
+DSH 与其他宿主有两处不同，其余步骤相同。
+
+**a) Skill 安装目标**：`dsh` 宿主把十个 Skill 复制到 DSH 内置 `@deepseek-ai/dsh-skill-filesystem` 的两个扫描根之一，装完新开 Session 即可看到。
+
+```bash
+# 项目级：<项目>/.dsh/skills
+python3 <KIT>/skills/nuclear-setup/scripts/install.py dsh \
+  --scope project --project "$PWD" --yes --json
+
+# 全局：$DSH_HOME/skills（未设置 DSH_HOME 时为 ~/.dsh/skills）
+python3 <KIT>/skills/nuclear-setup/scripts/install.py dsh --scope global --yes --json
+```
+
+**b) MCP 面用 bundle patch，不用 .mcp.json**：包根 `package.json` 声明 `dsh.bundle.patch` → `cordis.patch.yml`，其中通过 `@deepseek-ai/dsh-mcp-client` 桥接 `nuclear-dev`。bundle 会被 link 到任意 profile，patch 里不能写死绝对路径，所以该行默认关闭，先给路径再启用：
+
+```bash
+export NUCLEAR_DEV_MCP_SERVER="<KIT>/skills/nuclear-dev/scripts/nuclearmcp.py"
+export NUCLEAR_DEV_MCP_PYTHON=python3             # 可选
+export NUCLEAR_DEV_MCP_WORKSPACE=/path/to/project # 可选，单个工作区
+```
+
+也可以让 `register.py` 直接生成带绝对路径的片段（加 `--allow-write` 才开写入工具）：
+
+```bash
+python3 <KIT>/skills/nuclear-install/scripts/register.py dsh \
+  --scope project --project "$PWD" --json
+```
+
+把片段追加到该 profile 的 `cordis.patch.yml`，或用 `dsh --patch <片段文件>` 挂载；挂载后模型看到的工具名是 `mcp__nuclear-dev__<tool>`。
+
+**c) 载入 bundle**：
+
+```bash
+dsh plugin --profile <profile> add "link:<本包根目录>"
+```
+
+并把 `nuclear-dev-kit` 加进该 profile `package.json` 的 `dsh.profile.bundles`。
+
+**验证**：`dsh --profile <profile> --patch <片段> --dump-config` 应列出 `mcp-nuclear-dev` 一行；Session 的工具列表里应出现 6 个只读 `mcp__nuclear-dev__*` 工具，且没有任何批准工具。
 
 ---
 
@@ -309,6 +355,7 @@ python3 <KIT>/skills/nuclear-dev/scripts/nuclearctl.py --root . gate plan --json
 | Codex | `$nuclear-plan`，或在技能列表中选择 |
 | opencode | `/nuclear-plan` 或宿主提供的 Skill 选择器 |
 | Reasonix | 在 Skill 入口选择，或自然语言点名"使用 nuclear-plan" |
+| DeepSeek Harness | 在 Session 中通过 `/nuclear-plan` 或自然语言点名，由 filesystem skill 自动加载 |
 | 通用 Agent | 直接读取 `skills/nuclear-plan/SKILL.md` |
 
 确认十项齐全：`nuclear-dev`、`nuclear-setup`、`nuclear-install`、`nuclear-plan`、`nuclear-requirements`、`nuclear-design`、`nuclear-implementation`、`nuclear-test`、`nuclear-vv`、`nuclear-release`。

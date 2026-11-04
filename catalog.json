@@ -44,7 +44,7 @@
       "version": "0.1.0"
     },
     {
-      "description": "nuclear-dev-kit 的便捷安装、升级与部署入口。自动检测宿主，预览后把全部 Skill 安装到 Claude Code、Codex、opencode、Reasonix 或通用 Agent，可顺带初始化项目工作区并验证。用户说“安装这个包”“怎么部署”“升级 Skill”“装到某个宿主”时使用。",
+      "description": "nuclear-dev-kit 的便捷安装、升级与部署入口。自动检测宿主，预览后把全部 Skill 安装到 Claude Code、Codex、opencode、Reasonix、DeepSeek Harness 或通用 Agent，可顺带初始化项目工作区并验证。用户说“安装这个包”“怎么部署”“升级 Skill”“装到某个宿主”时使用。",
       "license": "MIT",
       "name": "nuclear-install",
       "path": "skills/nuclear-install/SKILL.md",
@@ -72,7 +72,7 @@
       "version": "0.1.0"
     },
     {
-      "description": "初始化核能软件开发工作区并安装七阶段 Skill 包。用于新项目建立 .nuclear-dev 门禁目录，或在 Claude Code、Codex、opencode、Reasonix 和通用代理中部署受控研发流程。",
+      "description": "初始化核能软件开发工作区并安装七阶段 Skill 包。用于新项目建立 .nuclear-dev 门禁目录，或在 Claude Code、Codex、opencode、Reasonix、DeepSeek Harness 和通用代理中部署受控研发流程。",
       "license": "MIT",
       "name": "nuclear-setup",
       "path": "skills/nuclear-setup/SKILL.md",

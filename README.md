@@ -9,7 +9,7 @@
 
 - 新建或维护核能数值求解器、物理模型、材料/物性库及其测试体系。
 - 需要把物理需求、数值方法、代码实现、测试证据和 V&V 结论串成一条可审计链路。
-- 需要在 Claude Code、Codex、opencode、Reasonix 或通用 Agent 中复用同一套门禁与工作流。
+- 需要在 Claude Code、Codex、opencode、Reasonix、DeepSeek Harness 或通用 Agent 中复用同一套门禁与工作流。
 
 本包不是质量保证体系的认证，也不替代适用法规、标准、持证人员判断或真实工程测试。无法执行命令时，Agent 必须明确报告限制，不能把静态文件说成门禁通过。
 
@@ -83,7 +83,37 @@ python3 nuclear-dev-kit/skills/nuclear-install/scripts/register.py claude \
   --scope project --project /path/to/project --write --json
 ```
 
-服务端契约见 [skills/nuclear-dev/references/mcp.md](skills/nuclear-dev/references/mcp.md)。Reasonix 原生读取项目根 `.mcp.json`，项目级注册与 Claude Code 相同；写入后需执行一次 `reasonix mcp enable nuclear-dev`。全局范围可加 `--write` 自动追加 `[[plugins]]` 到 `%APPDATA%\reasonix\config.toml`（Windows）或 `~/.reasonix/config.toml`，写入前自动备份，同名插件已存在时拒绝重复写入。`register.py` 覆盖 claude / codex / reasonix / generic；opencode 的 MCP 配置格式未实测，调用会返回明确错误，Skill 安装不受影响。
+服务端契约见 [skills/nuclear-dev/references/mcp.md](skills/nuclear-dev/references/mcp.md)。Reasonix 原生读取项目根 `.mcp.json`，项目级注册与 Claude Code 相同；写入后需执行一次 `reasonix mcp enable nuclear-dev`。全局范围可加 `--write` 自动追加 `[[plugins]]` 到 `%APPDATA%\reasonix\config.toml`（Windows）或 `~/.reasonix/config.toml`，写入前自动备份，同名插件已存在时拒绝重复写入。`register.py` 覆盖 claude / codex / reasonix / generic / dsh；opencode 的 MCP 配置格式未实测，调用会返回明确错误，Skill 安装不受影响。
+
+## DeepSeek Harness (DSH) 支持
+
+本项目可作为 DeepSeek Harness bundle 部署，分三层，按需取用：
+
+1. **Skill 层（必装）**：`install.py` / `quickinstall.py` 支持 `dsh` 宿主，项目级装到 `<项目>/.dsh/skills`，全局装到 `$DSH_HOME/skills`（或 `~/.dsh/skills`）。这两个目录是 DSH 内置 `@deepseek-ai/dsh-skill-filesystem` 的扫描根，装完新开会话即可看到十个 `nuclear-*` Skill。
+
+   ```bash
+   python3 nuclear-dev-kit/skills/nuclear-setup/scripts/install.py dsh \
+     --scope project --project /path/to/project --yes --json
+   ```
+
+2. **MCP 层（可选）**：根目录 `package.json` 声明 `dsh.bundle.patch` → `cordis.patch.yml`，用 `@deepseek-ai/dsh-mcp-client` 把 `nuclear-dev` 门禁桥接为 `mcp__nuclear-dev__*` 工具。bundle 会被 link 到任意 profile，patch 里无法写死绝对路径，因此该行默认关闭，设置环境变量后启用：
+
+   ```bash
+   export NUCLEAR_DEV_MCP_SERVER=/path/to/nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearmcp.py
+   export NUCLEAR_DEV_MCP_PYTHON=python3        # 可选，默认 python3
+   export NUCLEAR_DEV_MCP_WORKSPACE=/my/project # 可选，单个被门禁管理的工作区
+   ```
+
+   或者直接生成带绝对路径的片段，追加到 profile 的 `cordis.patch.yml`，或用 `dsh --patch` 挂载：
+
+   ```bash
+   python3 nuclear-dev-kit/skills/nuclear-install/scripts/register.py dsh \
+     --scope project --project /path/to/project --json
+   ```
+
+3. **Bundle 挂载**：`dsh plugin --profile <profile> add link:<本仓库路径>`，并把 `nuclear-dev-kit` 加进该 profile `package.json` 的 `dsh.profile.bundles`。
+
+默认 patch 只暴露只读工具，`--allow-write` 仍需显式添加；任何形态都不提供批准工具。
 
 ## A2A 面（远程 V&V）
 

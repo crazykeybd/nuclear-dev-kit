@@ -26,7 +26,7 @@ SKILL_NAMES = [
     "nuclear-vv",
     "nuclear-release",
 ]
-HOSTS = ["claude", "codex", "opencode", "reasonix", "generic"]
+HOSTS = ["claude", "codex", "opencode", "reasonix", "generic", "dsh"]
 BACKUP_DIR = ".nuclear-dev-kit-backups"
 
 
@@ -98,6 +98,7 @@ def host_roots(project: Optional[Path]) -> Dict[str, Path]:
         "opencode": project / ".opencode" / "skills",
         "reasonix": project / ".reasonix" / "skills",
         "generic": project / ".agents" / "skills",
+        "dsh": project / ".dsh" / "skills",
     }
 
 
@@ -109,6 +110,7 @@ def global_host_roots() -> Dict[str, Path]:
         "opencode": home / ".config" / "opencode" / "skills",
         "reasonix": reasonix_home() / "skills",
         "generic": home / ".agents" / "skills",
+        "dsh": environment_root("DSH_HOME", home / ".dsh") / "skills",
     }
 
 

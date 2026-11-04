@@ -1,0 +1,28 @@
+# nuclear-dev-kit 的 DeepSeek Harness（DSH）bundle 层。
+#
+# 本 bundle 让 DSH 通过 @deepseek-ai/dsh-mcp-client 把 nuclear-dev 门禁桥接为
+# mcp__nuclear-dev__* 工具。bundle 会被 link 到任意 profile，无法在 patch 里写死绝对路径，
+# 因此该行默认关闭，只有设置了环境变量时才启用：
+#
+#   export NUCLEAR_DEV_MCP_SERVER=/绝对路径/skills/nuclear-dev/scripts/nuclearmcp.py
+#   export NUCLEAR_DEV_MCP_PYTHON=python3                 # 可选，默认 python3
+#   export NUCLEAR_DEV_MCP_WORKSPACE=/被门禁管理的项目      # 可选，单个工作区
+#
+# 更省事的做法：用 skills/nuclear-install/scripts/register.py dsh 生成带绝对路径的片段，
+# 追加到 profile 的 cordis.patch.yml，或用 dsh --patch 挂载。
+#
+# 只装 Skill 不需要本层：install.py dsh 会把十个 Skill 复制到 <项目>/.dsh/skills 或
+# $DSH_HOME/skills，由 @deepseek-ai/dsh-skill-filesystem 自动发现。
+- insert:
+    - id: mcp-nuclear-dev
+      name: '@deepseek-ai/dsh-mcp-client'
+      # 未设置 NUCLEAR_DEV_MCP_SERVER 时整行关闭，挂载本 bundle 不会因路径缺失而报错。
+      disabled: !!js "!process.env.NUCLEAR_DEV_MCP_SERVER"
+      config:
+        serverName: nuclear-dev
+        transport: stdio
+        command: !!js "process.env.NUCLEAR_DEV_MCP_PYTHON ?? 'python3'"
+        args: !!js "process.env.NUCLEAR_DEV_MCP_WORKSPACE ? [process.env.NUCLEAR_DEV_MCP_SERVER, '--workspace', process.env.NUCLEAR_DEV_MCP_WORKSPACE] : [process.env.NUCLEAR_DEV_MCP_SERVER]"
+        toolCallTimeoutMs: 60000
+        # 只读工具先可用；写入工具仍须显式 --allow-write，见 nuclear-dev/references/mcp.md。
+        failOnStartupError: false

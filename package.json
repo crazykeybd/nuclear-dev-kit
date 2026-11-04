@@ -1,0 +1,25 @@
+{
+  "name": "nuclear-dev-kit",
+  "version": "0.1.0",
+  "description": "核能数值软件七阶段研发门禁与工程能力",
+  "author": {
+    "name": "Reasonix"
+  },
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "cordis.patch.yml",
+    "package.json",
+    "catalog.json",
+    "skills",
+    "README.md",
+    "INSTALL.md"
+  ]
+}
