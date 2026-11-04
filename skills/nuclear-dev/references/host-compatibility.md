@@ -9,6 +9,7 @@
 | opencode | `.opencode/skills` | `~/.config/opencode/skills` |
 | Reasonix | `.reasonix/skills` | `$REASONIX_HOME/skills`；Windows `%APPDATA%\reasonix\skills`；其他 `~/.reasonix/skills` |
 | generic | `.agents/skills` | `~/.agents/skills` |
+| DeepSeek Harness (dsh) | `.dsh/skills` | `$DSH_HOME/skills` 或 `~/.dsh/skills` |
 
 安装器位于 `skills/nuclear-setup/scripts/install.py`，源目录是包含十个 Skill 的 `skills/` 目录。安装器只复制 Skill，不写宿主配置，不修改项目源码，不生成批准文件。便捷入口 `skills/nuclear-install/scripts/quickinstall.py` 在此基础上增加宿主自动检测、初始化与验证编排，底层仍调用同一个安装器。
 
@@ -46,12 +47,13 @@ python3 <本包>/skills/nuclear-setup/scripts/install.py all --scope project --p
 - Reasonix：仓库根 `reasonix-plugin.json`，v2 清单贡献 `skills` 目录。
 - Claude Code：`.claude-plugin/plugin.json` 与 `.claude-plugin/marketplace.json`。
 - Codex：`.codex-plugin/plugin.json`，`skills` 指向 `./skills/`。
+- DeepSeek Harness：根目录 `package.json`（dsh bundle 清单）与 `cordis.patch.yml`（MCP 桥接插件配置）。
 - generic：直接复制 `skills/` 下的目录即可。
 
 ## MCP 与 A2A
 
 - MCP 注册片段由 `skills/nuclear-install/scripts/register.py` 生成；默认只打印。Claude Code 项目级与 Reasonix 项目级可用 `--write` 合并 `.mcp.json`；Reasonix 全局范围可用 `--write` 追加 `[[plugins]]` 到 `config.toml`，写入前自动备份，同名插件已存在时拒绝重复写入。详见 [mcp.md](mcp.md)。
-- `register.py` 覆盖 claude / codex / reasonix / generic 四个宿主。**opencode 的 MCP 配置格式未在本包中实测**，调用会返回明确错误而不是生成未验证的配置；Skill 安装不受影响。
+- `register.py` 覆盖 claude / codex / reasonix / generic / dsh 宿主。**opencode 的 MCP 配置格式未在本包中实测**，调用会返回明确错误而不是生成未验证的配置；Skill 安装不受影响。
 - 宿主集合与路径由 `tools/check_hosts.py` 在回归测试中校验，三处脚本与本文档必须一致。
 - A2A 客户端与服务端由 `scripts/nucleara2a.py` 提供；协议、策略与特批规则见 [a2a.md](a2a.md)，威胁模型见 [threat-model.md](threat-model.md)。
 - 两者都调用同一个 `nuclearlib.py`，不得为宿主复制或弱化门禁规则。
@@ -68,7 +70,7 @@ python3 <本包>/skills/nuclear-setup/scripts/install.py all --scope project --p
 
 | Skill | 字节 | 距上限 |
 |---|---|---|
-| nuclear-install | 7271 | 921 |
+| nuclear-install | 7399 | 793 |
 | nuclear-plan | 6333 | 1859 |
 | nuclear-requirements | 6244 | 1948 |
 | nuclear-vv | 6115 | 2077 |
@@ -77,7 +79,7 @@ python3 <本包>/skills/nuclear-setup/scripts/install.py all --scope project --p
 | nuclear-test | 5935 | 2257 |
 | nuclear-release | 5810 | 2382 |
 | nuclear-dev | 5524 | 2668 |
-| nuclear-setup | 2347 | 5845 |
+| nuclear-setup | 2370 | 5822 |
 
 该上限由 `tests/test_skill_limits.py` 在回归测试中强制检查；新增或扩写 SKILL.md 时若超限，测试会失败。
 

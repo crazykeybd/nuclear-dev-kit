@@ -1,6 +1,6 @@
 ---
 name: nuclear-setup
-description: 初始化核能软件开发工作区并安装七阶段 Skill 包。用于新项目建立 .nuclear-dev 门禁目录，或在 Claude Code、Codex、opencode、Reasonix 和通用代理中部署受控研发流程。
+description: 初始化核能软件开发工作区并安装七阶段 Skill 包。用于新项目建立 .nuclear-dev 门禁目录，或在 Claude Code、Codex、opencode、Reasonix、DeepSeek Harness 和通用代理中部署受控研发流程。
 license: MIT
 metadata:
   version: "0.1.0"
@@ -35,7 +35,7 @@ python3 <SKILL_DIR>/../nuclear-dev/scripts/nuclearctl.py --root <项目> init \
 安装器位于本目录的 `scripts/install.py`，源目录由脚本自动解析为整个包的 `skills/`：
 
 ```bash
-python3 <SKILL_DIR>/scripts/install.py <claude|codex|opencode|reasonix|generic|all> \
+python3 <SKILL_DIR>/scripts/install.py <claude|codex|opencode|reasonix|generic|dsh|all> \
   --scope <project|global> [--project <项目>] --json
 ```
 

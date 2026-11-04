@@ -91,6 +91,9 @@ def child_env() -> Dict[str, str]:
     env["XDG_CONFIG_HOME"] = str(home / ".config")
     env.pop("REASONIX_HOME", None)
     env.pop("CODEX_HOME", None)
+    # DSH 自身会注入 DSH_HOME；不隔离就会让全局范围的用例写进真实的 ~/.dsh。
+    env.pop("DSH_HOME", None)
+    env.pop("DSH_AGENTS_HOME", None)
     return env
 
 

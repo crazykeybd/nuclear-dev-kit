@@ -78,7 +78,7 @@ class InstallerTest(unittest.TestCase):
             self.project, "all", "--scope", "project", "--json"
         )
         self.assertEqual(code, 0, err)
-        self.assertEqual(sorted(payload["hosts"]), ["claude", "codex", "opencode", "reasonix"])
+        self.assertEqual(sorted(payload["hosts"]), ["claude", "codex", "dsh", "opencode", "reasonix"])
         self.assertEqual(len(payload["targets"]), len(SKILL_NAMES) * len(payload["hosts"]))
 
     def test_one_failing_host_does_not_block_the_others(self) -> None:
@@ -124,6 +124,29 @@ class InstallerTest(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             payload = support.parse_json(completed.stdout)
             root = Path(reasonix_home).resolve() / "skills"
+            for target in payload["targets"]:
+                self.assertEqual(Path(target["destination"]).parent, root)
+
+
+    def test_dsh_project_uses_dot_dsh(self) -> None:
+        code, payload, err = support.run_install(
+            self.project, "dsh", "--scope", "project", "--json"
+        )
+        self.assertEqual(code, 0, err)
+        root = self.project / ".dsh" / "skills"
+        for target in payload["targets"]:
+            self.assertEqual(Path(target["destination"]).parent, root)
+
+    def test_dsh_global_honors_dsh_home(self) -> None:
+        with tempfile.TemporaryDirectory() as dsh_home:
+            env = support.child_env()
+            env["DSH_HOME"] = dsh_home
+            completed = support.run_script(
+                support.INSTALL, ["dsh", "--scope", "global", "--json"], env=env
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            payload = support.parse_json(completed.stdout)
+            root = Path(dsh_home).resolve() / "skills"
             for target in payload["targets"]:
                 self.assertEqual(Path(target["destination"]).parent, root)
 

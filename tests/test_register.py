@@ -200,6 +200,15 @@ class OtherHostSnippetTest(unittest.TestCase):
         self.assertEqual(payload["snippet"]["name"], "nuclear-dev")
         self.assertEqual(payload["snippet"]["transport"], "stdio")
 
+    def test_dsh_emits_yaml_without_writing(self) -> None:
+        completed, payload = run_register("dsh", "--scope", "project", "--project", str(self.project))
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(payload["format"], "yaml")
+        self.assertIn("mcp-nuclear-dev", payload["snippet"])
+        self.assertIn("@deepseek-ai/dsh-mcp-client", payload["snippet"])
+        self.assertIn("nuclearmcp.py", payload["snippet"])
+        self.assertFalse(any(self.project.iterdir()))
+
     def test_global_scope_uses_isolated_home(self) -> None:
         """全局范围不得解析到开发者的真实用户目录。"""
         completed, payload = run_register("reasonix", "--scope", "global")

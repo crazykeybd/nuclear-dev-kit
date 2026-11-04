@@ -1,6 +1,6 @@
 ---
 name: nuclear-install
-description: nuclear-dev-kit 的便捷安装、升级与部署入口。自动检测宿主，预览后把全部 Skill 安装到 Claude Code、Codex、opencode、Reasonix 或通用 Agent，可顺带初始化项目工作区并验证。用户说“安装这个包”“怎么部署”“升级 Skill”“装到某个宿主”时使用。
+description: nuclear-dev-kit 的便捷安装、升级与部署入口。自动检测宿主，预览后把全部 Skill 安装到 Claude Code、Codex、opencode、Reasonix、DeepSeek Harness 或通用 Agent，可顺带初始化项目工作区并验证。用户说“安装这个包”“怎么部署”“升级 Skill”“装到某个宿主”时使用。
 license: MIT
 metadata:
   version: "0.1.0"
@@ -58,7 +58,7 @@ python3 <SKILL_DIR>/scripts/register.py claude --scope project --project <项目
 ## 操作流程
 
 1. **定位**：解析本文件所在目录为 `SKILL_DIR`，确认 `scripts/quickinstall.py` 存在。
-2. **确认三件事**：目标宿主、安装范围（`global` 全机可用 / `project` 仅当前项目）、项目根目录。`auto` 检测失败时，向用户列出 `claude`、`codex`、`opencode`、`reasonix`、`generic`、`all` 让用户选择，不要自行猜测。
+2. **确认三件事**：目标宿主、安装范围（`global` 全机可用 / `project` 仅当前项目）、项目根目录。`auto` 检测失败时，向用户列出 `claude`、`codex`、`opencode`、`reasonix`、`generic`、`dsh`、`all` 让用户选择，不要自行猜测。
 3. **预览**：先运行 dry-run，读取 JSON 中的 `host`、`host_source`、`detected_hosts`、`install.targets`、`install.conflicts`。向用户说清会写到哪里、装多少项、有没有冲突。
 4. **写入**：用户明确同意后加 `--yes`。有冲突时先报告，只有用户同意覆盖才加 `--force`。`all` 模式按宿主分组写入：某个宿主目录不可写时只回滚该宿主，其余宿主照常安装，结果以 `status: partial` 与 `failures` 呈现。
 5. **初始化**（可选）：用户需要受控研发工作区时加 `--init`，默认用项目目录名作为名称、自动推导小写标识；也可用 `--name`、`--id` 指定。已初始化的工作区不会重复创建。
@@ -70,7 +70,7 @@ python3 <SKILL_DIR>/scripts/register.py claude --scope project --project <项目
 
 | 参数 | 作用 |
 |---|---|
-| `host` / `--host` | `auto`（默认）、`claude`、`codex`、`opencode`、`reasonix`、`generic`、`all`；两种写法等价 |
+| `host` / `--host` | `auto`（默认）、`claude`、`codex`、`opencode`、`reasonix`、`generic`、`dsh`、`all`；两种写法等价 |
 | `--scope` | `global`（默认，本机所有项目）或 `project`（需 `--project`） |
 | `--project` | 项目根目录，默认当前目录；`--init` 也使用该目录 |
 | `--init` | 安装后初始化 `.nuclear-dev/` 工作区 |
@@ -100,6 +100,7 @@ python3 <SKILL_DIR>/scripts/register.py claude --scope project --project <项目
 | opencode | `<项目>/.opencode/skills` | `~/.config/opencode/skills` |
 | Reasonix | `<项目>/.reasonix/skills` | `$REASONIX_HOME/skills`；Windows `%APPDATA%\reasonix\skills`；其他 `~/.reasonix/skills` |
 | generic | `<项目>/.agents/skills` | `~/.agents/skills` |
+| DeepSeek Harness (dsh) | `<项目>/.dsh/skills` | `$DSH_HOME/skills` 或 `~/.dsh/skills` |
 
 `all` 会安装到全部目标，并按绝对路径去重。安装器只替换各个 `nuclear-*` 子目录，不替换整个 `skills/`，并排除 `__pycache__` 与 `*.pyc`。
 

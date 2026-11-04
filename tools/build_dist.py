@@ -30,6 +30,8 @@ FIXED_TIME = (1980, 1, 1, 0, 0, 0)
 REQUIRED = [
     "INSTALL.md",
     "README.md",
+    "package.json",
+    "cordis.patch.yml",
     "skills/nuclear-dev/SKILL.md",
     "skills/nuclear-dev/scripts/nuclearlib.py",
     "skills/nuclear-dev/scripts/nuclearctl.py",

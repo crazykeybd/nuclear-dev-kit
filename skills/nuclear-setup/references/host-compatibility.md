@@ -9,6 +9,7 @@
 | opencode | `.opencode/skills` | `~/.config/opencode/skills` |
 | Reasonix | `.reasonix/skills` | `$REASONIX_HOME/skills`；Windows `%APPDATA%\reasonix\skills`；其他 `~/.reasonix/skills` |
 | generic | `.agents/skills` | `~/.agents/skills` |
+| DeepSeek Harness (dsh) | `.dsh/skills` | `$DSH_HOME/skills` 或 `~/.dsh/skills` |
 
 安装器位于 `skills/nuclear-setup/scripts/install.py`，自动解析包含十个 Skill 的源目录。它只复制 Skill，不写宿主配置，不修改项目源码，不生成批准文件。便捷入口 `skills/nuclear-install/scripts/quickinstall.py` 封装了宿主检测、初始化与验证，底层调用同一个安装器。
 
@@ -38,7 +39,7 @@ python3 <本包>/skills/nuclear-setup/scripts/install.py all \
 
 ## MCP 注册（可选）
 
-Skill 安装只复制指令与脚本。要让宿主通过确定性工具调用门禁，再用 `skills/nuclear-install/scripts/register.py` 生成注册片段（覆盖 claude / codex / reasonix / generic；opencode 的 MCP 配置格式未实测，调用会返回明确错误）：
+Skill 安装只复制指令与脚本。要让宿主通过确定性工具调用门禁，再用 `skills/nuclear-install/scripts/register.py` 生成注册片段（覆盖 claude / codex / reasonix / generic / dsh；opencode 的 MCP 配置格式未实测，调用会返回明确错误）：
 
 ```bash
 python3 <本包>/skills/nuclear-install/scripts/register.py claude \
@@ -62,6 +63,7 @@ python3 <本包>/skills/nuclear-install/scripts/register.py claude \
 - Reasonix：包根 `reasonix-plugin.json`，v2 清单贡献 `skills` 目录。
 - Claude Code：`.claude-plugin/plugin.json` 与 `.claude-plugin/marketplace.json`。
 - Codex：`.codex-plugin/plugin.json`，`skills` 指向 `./skills/`。
+- DeepSeek Harness：根目录 `package.json`（dsh bundle 清单）与 `cordis.patch.yml`（MCP 桥接插件配置）。
 - generic：直接复制 `skills/` 下的十个目录即可。
 
 ## 宿主能力限制
@@ -76,7 +78,7 @@ python3 <本包>/skills/nuclear-install/scripts/register.py claude \
 
 | Skill | 字节 | 距上限 |
 |---|---|---|
-| nuclear-install | 7271 | 921 |
+| nuclear-install | 7399 | 793 |
 | nuclear-plan | 6333 | 1859 |
 | nuclear-requirements | 6244 | 1948 |
 | nuclear-vv | 6115 | 2077 |
@@ -85,7 +87,7 @@ python3 <本包>/skills/nuclear-install/scripts/register.py claude \
 | nuclear-test | 5935 | 2257 |
 | nuclear-release | 5810 | 2382 |
 | nuclear-dev | 5524 | 2668 |
-| nuclear-setup | 2347 | 5845 |
+| nuclear-setup | 2370 | 5822 |
 
 该上限由 `tests/test_skill_limits.py` 在回归测试中强制检查；新增或扩写 SKILL.md 时若超限，测试会失败。
 
