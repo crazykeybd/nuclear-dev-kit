@@ -40,7 +40,8 @@ Ticket details show the originating Trigger, Decision and reason, scope and Poli
 - **Prompts:** **Edit** changes team sections, built-in parts and skills. **Full prompt** shows the assembled text and compares it with saved text or defaults. **History** lists versions. Edited built-in parts are marked changed and can be reset; templates list their required placeholders.
 
   An upgrade that changes an overridden default marks it **Default updated** (默认内容已更新). The panel compares the old and new defaults above the team's text. If the old default was not recorded, it compares the team's text with the new default instead. Choose **Keep my text** or **Use the new default**. Overrides for removed parts are listed below the tab bar and dropped on the next save.
-- **Deployment:** startup problems with **Check again**, the state directory and machine limits. Saved limits apply without restart. The DeepSeek Harness Plugin Manager exposes the same page.
+- **Deployment:** startup problems with **Check again**, the state directory, the nuclear gate kit and its interpreter
+  (`nuclear.kitPath`, `nuclear.python`, both set in the DSH configuration file) and machine limits. Saved limits apply without restart. The DeepSeek Harness Plugin Manager exposes the same page.
 
 The Nuclear tab says nothing of its own about a stage: a state is the kit's verdict plus two filesystem facts (whether the
 artifact exists, and whether an approval file is there), and every message under a stage is a line `nuclearlib.py` wrote.
