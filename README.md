@@ -121,13 +121,19 @@ python3 nuclear-dev-kit/skills/nuclear-install/scripts/register.py claude \
 [`superagent/`](superagent/)（零改动、可整目录替换，来源与更新方式见 [superagent/VENDOR.md](superagent/VENDOR.md)），
 让「主动接活 → 开 Ticket → 独立 Session 执行 → 回帖」这条链路直接跑核能七阶段流程：
 
-- superagent 的每个 Ticket 在自己的 Git worktree 里执行，执行器 Session 的项目级 Skill 根是
-  `<工作目录>/.dsh/skills`；
-- 在 superagent 的 prepare 命令后追加一条本包现成的安装命令，把十个 `nuclear-*` Skill 装进该 worktree；
-- 执行器于是按 `nuclear-plan` → … → `nuclear-release` 的门禁干活，判定仍由 `nuclearlib.py` 给出，
-  不生成、也不允许伪造批准。
+```bash
+python3 tools/deploy_superagent.py          # 预览：会构建上游副本、装 Skill、建 profile、写配置
+python3 tools/deploy_superagent.py --yes    # 一条命令部署完
+dsh superagent                              # 起来用（面板 http://127.0.0.1:3082）
+```
 
-完整步骤（构建副本、两个 bundle 安装、prepare 命令写法、验证与限制）见 [docs/superagent.md](docs/superagent.md)。
+它把十个 `nuclear-*` Skill 装到 `$DSH_HOME/skills`（DSH 的用户级 Skill 根，所有 profile 与
+Ticket 工作目录都看得到），把两个 bundle 链接进 profile 并补上 `dsh.profile.bundles`，写好面板
+端口、`stateDir` 与 `nuclear-dev` 的 MCP 桥接（绝对路径，不需要环境变量），最后用
+`dsh --dump-config` 复核。重复执行安全：Skill 已装齐就跳过，配置行已在位就不重写。
+
+执行器因此按 `nuclear-plan` → … → `nuclear-release` 的门禁干活，判定仍由 `nuclearlib.py` 给出，
+不生成、也不允许伪造批准。参数、备选写法与限制见 [docs/superagent.md](docs/superagent.md)。
 
 ## A2A 面（远程 V&V）
 
@@ -223,6 +229,7 @@ nuclear-dev-kit/
     gen_catalog.py           # 生成并校验 catalog.json
     check_docs.py            # 校验文档与内核一致
     check_superagent_vendor.py # 校验 superagent/ 副本完整性与来源
+    deploy_superagent.py     # 一条命令部署「核能门禁 + superagent」
   superagent/                # 上游 dsh-superagent 源码副本（零改动，见 VENDOR.md）
   docs/
     superagent.md            # 在 dsh-superagent 中跑核能流程的部署说明
