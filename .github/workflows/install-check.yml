@@ -13,6 +13,7 @@ on:
       - "skills/**"
       - "tools/**"
       - "tests/**"
+      - "docs/**"
       - "package.json"
       - "cordis.patch.yml"
       - ".github/workflows/install-check.yml"

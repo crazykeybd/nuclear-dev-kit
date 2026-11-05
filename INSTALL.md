@@ -18,6 +18,8 @@ nuclear-dev-kit/
   README.md
   package.json                   DeepSeek Harness bundle 清单
   cordis.patch.yml               DeepSeek Harness 插件补丁配置
+  superagent/                    上游 dsh-superagent 源码副本（零改动，见 VENDOR.md）
+  docs/superagent.md             在 dsh-superagent 中跑核能流程的部署说明
   reasonix-plugin.json           Reasonix 插件清单
   .claude-plugin/                Claude Code 插件清单
   .codex-plugin/                 Codex 插件清单
@@ -298,6 +300,33 @@ dsh plugin --profile <profile> add "link:<本包根目录>"
 **验证**：`dsh --profile <profile> --patch <片段> --dump-config` 应列出 `mcp-nuclear-dev` 一行；Session 的工具列表里应出现 6 个只读 `mcp__nuclear-dev__*` 工具，且没有任何批准工具。
 
 ---
+
+### 4.7 在 dsh-superagent 中运行
+
+本包把上游 `dsh-superagent` 源码复制在 `superagent/`（零改动），并把核能 Skill 装进它每个
+Ticket 的工作目录，于是执行器按七阶段门禁干活。完整说明见
+[`docs/superagent.md`](docs/superagent.md)；要点：
+
+```bash
+# 1) 构建上游副本（需要 Node.js 22.19+ 或 24+、pnpm）
+cd superagent && pnpm install && pnpm build && cd ..
+
+# 2) 专用 profile：载入 superagent 与本包
+dsh superagent --from-default-profile web --dump-config > /dev/null
+dsh plugin --profile superagent add "link:$PWD/superagent"
+dsh plugin --profile superagent add "link:$PWD"
+
+# 3) 在面板 Settings → Execution 的 prepare 命令末尾追加一条安装命令
+#    （$DSH_SUPERAGENT_DIR 是该 Ticket 的工作目录）
+python3 "$PWD/skills/nuclear-setup/scripts/install.py" dsh \
+  --scope project --project "$DSH_SUPERAGENT_DIR" --yes --json
+```
+
+第 3 步把十个 Skill 装到 `<工作目录>/.dsh/skills`，正是 DSH `@deepseek-ai/dsh-skill-filesystem`
+的项目级扫描根；执行器 Session 的工作目录就是该 worktree，因此能直接看到 `nuclear-*`。
+工作目录已存在时安装器默认以冲突退出（码 `1`），prepare 随之失败、Ticket 报错而不会假装成功；
+确需覆盖再加 `--force`（写入前备份）。
+
 
 ## 5. 初始化业务项目的工作区
 

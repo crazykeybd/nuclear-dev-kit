@@ -9,3 +9,9 @@ dist/
 /*.md
 !/README.md
 !/INSTALL.md
+
+# 上游 superagent 副本：本机产物不入库
+/superagent/node_modules/
+/superagent/.artifacts/
+/superagent/lib/
+/superagent/coverage/
