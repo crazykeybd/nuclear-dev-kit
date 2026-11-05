@@ -10,8 +10,8 @@ dist/
 !/README.md
 !/INSTALL.md
 
-# 上游 superagent 副本：本机产物不入库
-/superagent/node_modules/
-/superagent/.artifacts/
-/superagent/lib/
-/superagent/coverage/
+# nuclear-dev-agent 主体包的本机产物不入库
+/nuclear-dev-agent/node_modules/
+/nuclear-dev-agent/.artifacts/
+/nuclear-dev-agent/lib/
+/nuclear-dev-agent/coverage/

@@ -18,8 +18,8 @@ nuclear-dev-kit/
   README.md
   package.json                   DeepSeek Harness bundle 清单
   cordis.patch.yml               DeepSeek Harness 插件补丁配置
-  superagent/                    上游 dsh-superagent 源码副本（零改动，见 VENDOR.md）
-  docs/superagent.md             在 dsh-superagent 中跑核能流程的部署说明
+  nuclear-dev-agent/                    本仓库主体：核能软件开发智能体（上游来源与改动见 FORK.md）
+  docs/nuclear-dev-agent.md             在 nuclear-dev-agent 中跑核能流程的部署说明
   reasonix-plugin.json           Reasonix 插件清单
   .claude-plugin/                Claude Code 插件清单
   .codex-plugin/                 Codex 插件清单
@@ -301,23 +301,26 @@ dsh plugin --profile <profile> add "link:<本包根目录>"
 
 ---
 
-### 4.7 在 dsh-superagent 中运行（一条命令）
+### 4.7 在 nuclear-dev-agent 中运行（一条命令）
 
 ```bash
-python3 tools/deploy_superagent.py            # 预览，不写任何文件
-python3 tools/deploy_superagent.py --yes      # 部署：构建副本、装 Skill、建 profile、写配置、复核
-dsh superagent                                # 启动；面板 http://127.0.0.1:3082
+python3 tools/deploy_nuclear_dev_agent.py            # 预览，不写任何文件
+python3 tools/deploy_nuclear_dev_agent.py --yes      # 部署：构建 agent、装 Skill、建 profile、写配置、复核
+dsh nuclear-dev-agent                                # 启动；面板 http://127.0.0.1:3082
 ```
 
-这条命令做四件事：在 `superagent/` 里 `pnpm install && pnpm build`；把十个 `nuclear-*`
+这条命令做四件事：在 `nuclear-dev-agent/` 里 `pnpm install && pnpm build`；把十个 `nuclear-*`
 Skill 装到 `$DSH_HOME/skills`（用户级 Skill 根，所有 Session 与 Ticket 工作目录可见，因此
-**不用**再配 prepare 命令）；把 `dsh-superagent` 与 `nuclear-dev-kit` 链接进 profile 并补上
-`dsh.profile.bundles`；写 profile 的 `cordis.patch.yml`（端口、`stateDir`、MCP 桥接的绝对路径）
+**不用**再配 prepare 命令）；把 `nuclear-dev-agent` 与 `nuclear-dev-kit` 链接进 profile 并补上
+`dsh.profile.bundles`；写 profile 的 `cordis.patch.yml`（端口、`stateDir`、`nuclear.kitPath` 指向本仓库、
+MCP 桥接的绝对路径）
 后用 `dsh --dump-config` 复核。默认 dry-run，`--yes` 才写；改动前备份，已有配置（比如你自己的端口、`llm` 行）原样保留、只补缺的块，重复执行安全。
 
 部署后仍需人来做的：面板 Sources 填目标仓库与 agent 账号的 `gh` 包装器，Policy 填允许名单，
 模型供应商未配置时补 `llm` 行。需要 Node.js 22.19+ 或 24+ 与 pnpm（`--skip-build` 可跳过构建）。
-细节与备选写法（把 Skill 只装进某个 Ticket 的 worktree）见 [`docs/superagent.md`](docs/superagent.md)。
+部署后的面板多一页「核能流程」：每个工单目录一块七阶段板，判定全部来自 `nuclearlib.py`，
+`nuclear.kitPath` 留空则这一页只说明如何配置。细节与备选写法（把 Skill 只装进某个 Ticket 的 worktree）
+见 [`docs/nuclear-dev-agent.md`](docs/nuclear-dev-agent.md)。
 
 
 ## 5. 初始化业务项目的工作区

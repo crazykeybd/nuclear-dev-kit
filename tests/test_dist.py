@@ -44,6 +44,17 @@ class BuildDistTest(unittest.TestCase):
         self.assertFalse(any(name.endswith("方案.md") for name in names))
         self.assertFalse(any(name.endswith("工作记录.md") for name in names))
         self.assertFalse(any(name.endswith("CLAUDE.md") for name in names))
+        # 只在本仓库有意义的工具/测试：它们读写 nuclear-dev-agent/，不随 Skill 包分发。
+        for repo_only in (
+            "check_nuclear_dev_agent.py",
+            "test_nuclear_dev_agent.py",
+            "deploy_nuclear_dev_agent.py",
+            "test_deploy_nuclear_dev_agent.py",
+        ):
+            self.assertFalse(
+                any(name.endswith("/" + repo_only) for name in names),
+                "%s 不应进分发包" % repo_only,
+            )
         self.assertEqual(names, sorted(names))
 
     def test_sha256sums_matches_archive_contents(self) -> None:

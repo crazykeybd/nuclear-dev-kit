@@ -115,25 +115,36 @@ python3 nuclear-dev-kit/skills/nuclear-install/scripts/register.py claude \
 
 默认 patch 只暴露只读工具，`--allow-write` 仍需显式添加；任何形态都不提供批准工具。
 
-## 在 dsh-superagent 中使用
+## 智能体：nuclear-dev-agent（核能软件开发全流程）
 
-本仓库把上游 [dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype) 的源码复制到
-[`superagent/`](superagent/)（零改动、可整目录替换，来源与更新方式见 [superagent/VENDOR.md](superagent/VENDOR.md)），
-让「主动接活 → 开 Ticket → 独立 Session 执行 → 回帖」这条链路直接跑核能七阶段流程：
+[`nuclear-dev-agent/`](nuclear-dev-agent/) 是本仓库的主体：一个 DSH（DeepSeek Harness）bundle，
+把本包的七阶段门禁装进「主动接活 → 开 Ticket → 独立 Session 执行 → 回帖」这条链路，让智能体按
+`nuclear-plan` → … → `nuclear-release` 干活。它以 `superagent` 原型为骨架改造而来，来源与逐项改动见
+[`nuclear-dev-agent/FORK.md`](nuclear-dev-agent/FORK.md)。
 
 ```bash
-python3 tools/deploy_superagent.py          # 预览：会构建上游副本、装 Skill、建 profile、写配置
-python3 tools/deploy_superagent.py --yes    # 一条命令部署完
-dsh superagent                              # 起来用（面板 http://127.0.0.1:3082）
+python3 tools/deploy_nuclear_dev_agent.py          # 预览：构建 agent、装 Skill、建 profile、写配置
+python3 tools/deploy_nuclear_dev_agent.py --yes    # 一条命令部署完
+dsh nuclear-dev-agent                              # 起来用（面板 http://127.0.0.1:3082）
 ```
 
-它把十个 `nuclear-*` Skill 装到 `$DSH_HOME/skills`（DSH 的用户级 Skill 根，所有 profile 与
-Ticket 工作目录都看得到），把两个 bundle 链接进 profile 并补上 `dsh.profile.bundles`，写好面板
-端口、`stateDir` 与 `nuclear-dev` 的 MCP 桥接（绝对路径，不需要环境变量），最后用
-`dsh --dump-config` 复核。重复执行安全：Skill 已装齐就跳过，配置行已在位就不重写。
+部署脚本把十个 `nuclear-*` Skill 装到 `$DSH_HOME/skills`（DSH 用户级 Skill 根，所有 profile 与 Ticket
+工作目录都看得到），把两个 bundle 链接进 profile 并补上 `dsh.profile.bundles`，写好面板端口与 `stateDir`，
+并把本仓库的绝对路径写成 agent 的 `nuclear.kitPath`，最后用 `dsh --dump-config` 复核。重复执行安全：
+Skill 已装齐就跳过，配置行已在位就不重写。
 
-执行器因此按 `nuclear-plan` → … → `nuclear-release` 的门禁干活，判定仍由 `nuclearlib.py` 给出，
-不生成、也不允许伪造批准。参数、备选写法与限制见 [docs/superagent.md](docs/superagent.md)。
+核能流程在 agent 内部的位置：
+
+| 部分 | 做什么 |
+|---|---|
+| `src/nuclear/` | 七阶段表，以及 `nuclearctl.py` 的桥接：`status` 读每个阶段，`gate <阶段>` 读当前阶段的递归门禁；门禁消息逐字照抄 |
+| `src/app/nuclear.ts` | 按工单目录缓存扫描、解释器探测，向面板与概览提供阶段板 |
+| `prompts/nuclear.md` | 两个角色的内置段落 `runtime/nuclear`：阶段、命令、以及「批准只能由人签、门禁失败即停」 |
+| 面板「核能流程」 | 每个工作区一块七阶段板；工单页带本工单的阶段段；概览列出被门禁停住的阶段 |
+| `DSH_NUCLEAR_DEV_AGENT_KIT` / `..._NUCLEARCTL` | 执行环境变量：本机 kit 目录与门禁命令行，主 Session 与执行器都能直接调用 |
+
+它不生成批准、不放宽门禁：阶段过不过只由 `nuclearlib.py` 判定，面板只转述它的原话。
+参数、环境变量与限制见 [docs/nuclear-dev-agent.md](docs/nuclear-dev-agent.md)。
 
 ## A2A 面（远程 V&V）
 
@@ -228,11 +239,17 @@ nuclear-dev-kit/
     build_dist.py            # 可复现打包
     gen_catalog.py           # 生成并校验 catalog.json
     check_docs.py            # 校验文档与内核一致
-    check_superagent_vendor.py # 校验 superagent/ 副本完整性与来源
-    deploy_superagent.py     # 一条命令部署「核能门禁 + superagent」
-  superagent/                # 上游 dsh-superagent 源码副本（零改动，见 VENDOR.md）
+    check_nuclear_dev_agent.py # 校验 agent 包的身份、核能模块与来源记录
+    deploy_nuclear_dev_agent.py      # 一条命令部署「核能门禁 + nuclear-dev-agent」
+  nuclear-dev-agent/                 # 本仓库主体：核能软件开发智能体（来源与改动见 FORK.md）
+    FORK.md                          # 上游基点提交与本仓库相对上游的改动清单
+    src/nuclear/                     # 七阶段表与 nuclearlib.py 的调用桥接
+    src/app/nuclear.ts               # 扫描缓存、工单阶段快照
+    src/app/views/nuclear.ts         # 面板与概览的核能视图
+    src/client/nuclear.tsx           # 面板「核能流程」页与工单阶段段
+    prompts/nuclear.md               # 内置段落 runtime/nuclear
   docs/
-    superagent.md            # 在 dsh-superagent 中跑核能流程的部署说明
+    nuclear-dev-agent.md             # 部署、配置与限制说明
 ```
 
 共享契约只在 `skills/nuclear-dev/references/` 维护。各宿主必须调用同一套 `nuclearlib.py`，禁止复制或弱化门禁规则。

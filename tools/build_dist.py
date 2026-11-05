@@ -21,15 +21,15 @@ from typing import Any, Dict, List, Tuple
 REPO = Path(__file__).resolve().parents[1]
 KIT_NAME = "nuclear-dev-kit"
 EXCLUDED_DIRS = {".git", ".github", "dist", "__pycache__", ".nuclear-dev", ".nuclear-dev-kit-backups"}
-# 只在仓库根排除：superagent/ 是上游 DSH bundle 源码副本（自带 package.json、构建链与许可证），
+# 只在仓库根排除：nuclear-dev-agent/ 是本仓库的主体包（自带 package.json、构建链与许可证），
 # docs/ 是给人读的部署说明，两者都单独分发，不塞进 Python Skill 包的分发包里。
-TOP_LEVEL_EXCLUDED = {"superagent", "docs"}
+TOP_LEVEL_EXCLUDED = {"nuclear-dev-agent", "docs"}
 EXCLUDED_FILES = {
     "方案.md", "开源bot调研方案.md", "工作记录.md", "CLAUDE.md", "bot.md",
     ".gitignore", ".gitattributes",
-    # 只在本仓库有意义：它们用到的 superagent/ 不随 Skill 包分发，装到用户机器上必然失败。
-    "check_superagent_vendor.py", "test_superagent_vendor.py",
-    "deploy_superagent.py", "test_deploy_superagent.py",
+    # 只在本仓库有意义：它们读写的 nuclear-dev-agent/ 不随 Skill 包分发，装到用户机器上必然失败。
+    "check_nuclear_dev_agent.py", "test_nuclear_dev_agent.py",
+    "deploy_nuclear_dev_agent.py", "test_deploy_nuclear_dev_agent.py",
 }
 EXCLUDED_SUFFIXES = {".pyc", ".tmp"}
 FIXED_TIME = (1980, 1, 1, 0, 0, 0)
