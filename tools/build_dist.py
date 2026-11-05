@@ -27,8 +27,9 @@ TOP_LEVEL_EXCLUDED = {"superagent", "docs"}
 EXCLUDED_FILES = {
     "方案.md", "开源bot调研方案.md", "工作记录.md", "CLAUDE.md", "bot.md",
     ".gitignore", ".gitattributes",
-    # 只在本仓库有意义：它们校验的 superagent/ 不随 Skill 包分发，装到用户机器上必然失败。
+    # 只在本仓库有意义：它们用到的 superagent/ 不随 Skill 包分发，装到用户机器上必然失败。
     "check_superagent_vendor.py", "test_superagent_vendor.py",
+    "deploy_superagent.py", "test_deploy_superagent.py",
 }
 EXCLUDED_SUFFIXES = {".pyc", ".tmp"}
 FIXED_TIME = (1980, 1, 1, 0, 0, 0)

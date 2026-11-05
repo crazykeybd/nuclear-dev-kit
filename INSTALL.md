@@ -301,31 +301,23 @@ dsh plugin --profile <profile> add "link:<本包根目录>"
 
 ---
 
-### 4.7 在 dsh-superagent 中运行
-
-本包把上游 `dsh-superagent` 源码复制在 `superagent/`（零改动），并把核能 Skill 装进它每个
-Ticket 的工作目录，于是执行器按七阶段门禁干活。完整说明见
-[`docs/superagent.md`](docs/superagent.md)；要点：
+### 4.7 在 dsh-superagent 中运行（一条命令）
 
 ```bash
-# 1) 构建上游副本（需要 Node.js 22.19+ 或 24+、pnpm）
-cd superagent && pnpm install && pnpm build && cd ..
-
-# 2) 专用 profile：载入 superagent 与本包
-dsh superagent --from-default-profile web --dump-config > /dev/null
-dsh plugin --profile superagent add "link:$PWD/superagent"
-dsh plugin --profile superagent add "link:$PWD"
-
-# 3) 在面板 Settings → Execution 的 prepare 命令末尾追加一条安装命令
-#    （$DSH_SUPERAGENT_DIR 是该 Ticket 的工作目录）
-python3 "$PWD/skills/nuclear-setup/scripts/install.py" dsh \
-  --scope project --project "$DSH_SUPERAGENT_DIR" --yes --json
+python3 tools/deploy_superagent.py            # 预览，不写任何文件
+python3 tools/deploy_superagent.py --yes      # 部署：构建副本、装 Skill、建 profile、写配置、复核
+dsh superagent                                # 启动；面板 http://127.0.0.1:3082
 ```
 
-第 3 步把十个 Skill 装到 `<工作目录>/.dsh/skills`，正是 DSH `@deepseek-ai/dsh-skill-filesystem`
-的项目级扫描根；执行器 Session 的工作目录就是该 worktree，因此能直接看到 `nuclear-*`。
-工作目录已存在时安装器默认以冲突退出（码 `1`），prepare 随之失败、Ticket 报错而不会假装成功；
-确需覆盖再加 `--force`（写入前备份）。
+这条命令做四件事：在 `superagent/` 里 `pnpm install && pnpm build`；把十个 `nuclear-*`
+Skill 装到 `$DSH_HOME/skills`（用户级 Skill 根，所有 Session 与 Ticket 工作目录可见，因此
+**不用**再配 prepare 命令）；把 `dsh-superagent` 与 `nuclear-dev-kit` 链接进 profile 并补上
+`dsh.profile.bundles`；写 profile 的 `cordis.patch.yml`（端口、`stateDir`、MCP 桥接的绝对路径）
+后用 `dsh --dump-config` 复核。默认 dry-run，`--yes` 才写；改动前备份，已有配置（比如你自己的端口、`llm` 行）原样保留、只补缺的块，重复执行安全。
+
+部署后仍需人来做的：面板 Sources 填目标仓库与 agent 账号的 `gh` 包装器，Policy 填允许名单，
+模型供应商未配置时补 `llm` 行。需要 Node.js 22.19+ 或 24+ 与 pnpm（`--skip-build` 可跳过构建）。
+细节与备选写法（把 Skill 只装进某个 Ticket 的 worktree）见 [`docs/superagent.md`](docs/superagent.md)。
 
 
 ## 5. 初始化业务项目的工作区
