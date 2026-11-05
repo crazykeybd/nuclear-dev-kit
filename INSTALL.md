@@ -303,18 +303,24 @@ dsh plugin --profile <profile> add "link:<本包根目录>"
 
 ### 4.7 在 nuclear-dev-agent 中运行（一条命令）
 
+[`nuclear-dev-agent/`](../nuclear-dev-agent/) 是本仓库主体：一个 DSH bundle，把本包的七阶段门禁装进
+「接活 → 开 Ticket → 独立 Session 执行 → 回帖」的链路，并带网页面板。一条命令即可部署：
+
 ```bash
 python3 tools/deploy_nuclear_dev_agent.py            # 预览，不写任何文件
 python3 tools/deploy_nuclear_dev_agent.py --yes      # 部署：构建 agent、装 Skill、建 profile、写配置、复核
 dsh nuclear-dev-agent                                # 启动；面板 http://127.0.0.1:3082
 ```
 
-这条命令做四件事：在 `nuclear-dev-agent/` 里 `pnpm install && pnpm build`；把十个 `nuclear-*`
-Skill 装到 `$DSH_HOME/skills`（用户级 Skill 根，所有 Session 与 Ticket 工作目录可见，因此
-**不用**再配 prepare 命令）；把 `nuclear-dev-agent` 与 `nuclear-dev-kit` 链接进 profile 并补上
-`dsh.profile.bundles`；写 profile 的 `cordis.patch.yml`（端口、`stateDir`、`nuclear.kitPath` 指向本仓库、
-MCP 桥接的绝对路径）
-后用 `dsh --dump-config` 复核。默认 dry-run，`--yes` 才写；改动前备份，已有配置（比如你自己的端口、`llm` 行）原样保留、只补缺的块，重复执行安全。
+它按顺序做五件事：
+
+1. 在 `nuclear-dev-agent/` 里 `pnpm install && pnpm build`（已构建过可加 `--skip-build`）；
+2. 把十个 `nuclear-*` Skill 装到 `$DSH_HOME/skills`——用户级 Skill 根，所有 Session 与 Ticket 工作目录都能看到，因此**不用**再配 prepare 命令（`--refresh` 可强制重装，安装器会先备份）；
+3. 建好或复用 profile：`--profile` 指定名字，默认 `nuclear-dev-agent`；`--port` 指定面板端口，默认 `3082`；
+4. 把 `nuclear-dev-agent` 与 `nuclear-dev-kit` 链接进 profile，并补上 `dsh.profile.bundles`（`dsh plugin` 不管这一段）；
+5. 写 profile 的 `cordis.patch.yml`（端口、`stateDir`、`nuclear.kitPath` 指向本仓库、MCP 桥接的绝对路径），随后用 `dsh --dump-config` 复核这些行确实进了组合结果。
+
+默认 dry-run，`--yes` 才写；改动前备份，已有配置（比如你自己的端口、`llm` 行）原样保留、只补缺的块，重复执行安全。
 
 部署后仍需人来做的：面板 Sources 填目标仓库与 agent 账号的 `gh` 包装器，Policy 填允许名单，
 模型供应商未配置时补 `llm` 行。需要 Node.js 22.19+ 或 24+ 与 pnpm（`--skip-build` 可跳过构建）。
