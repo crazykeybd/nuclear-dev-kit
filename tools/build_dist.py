@@ -21,9 +21,14 @@ from typing import Any, Dict, List, Tuple
 REPO = Path(__file__).resolve().parents[1]
 KIT_NAME = "nuclear-dev-kit"
 EXCLUDED_DIRS = {".git", ".github", "dist", "__pycache__", ".nuclear-dev", ".nuclear-dev-kit-backups"}
+# 只在仓库根排除：superagent/ 是上游 DSH bundle 源码副本（自带 package.json、构建链与许可证），
+# docs/ 是给人读的部署说明，两者都单独分发，不塞进 Python Skill 包的分发包里。
+TOP_LEVEL_EXCLUDED = {"superagent", "docs"}
 EXCLUDED_FILES = {
     "方案.md", "开源bot调研方案.md", "工作记录.md", "CLAUDE.md", "bot.md",
     ".gitignore", ".gitattributes",
+    # 只在本仓库有意义：它们校验的 superagent/ 不随 Skill 包分发，装到用户机器上必然失败。
+    "check_superagent_vendor.py", "test_superagent_vendor.py",
 }
 EXCLUDED_SUFFIXES = {".pyc", ".tmp"}
 FIXED_TIME = (1980, 1, 1, 0, 0, 0)
@@ -68,6 +73,8 @@ def iter_files(base: Path) -> List[Path]:
     files: List[Path] = []
     for path in sorted(base.rglob("*")):
         relative = path.relative_to(base)
+        if relative.parts and relative.parts[0] in TOP_LEVEL_EXCLUDED:
+            continue
         if any(part in EXCLUDED_DIRS for part in relative.parts):
             continue
         if path.is_symlink():
