@@ -290,6 +290,33 @@ class PatchTest(unittest.TestCase):
         )
 
 
+    def test_replaces_the_template_empty_flow_list(self) -> None:
+        """新建 profile 的 patch 是「注释 + 空的 `[]`」；追加 `- id:` 前必须去掉它，否则 YAML 非法。"""
+        module = load_module()
+        target = self.profile / "cordis.patch.yml"
+        target.write_text(
+            "# Your patch layer for this dsh profile.\n# a top-level YAML array\n[]\n", encoding="utf-8"
+        )
+        result = module.patch_rows(self.profile, 3082, self.state, "/usr/bin/python3", dry_run=False)
+        self.assertEqual(len(result["missing"]), 3)
+        text = target.read_text(encoding="utf-8")
+        self.assertNotIn("[]", text)
+        # 注释保留，条目从第一条 `- id:` 开始
+        self.assertTrue(text.startswith("# Your patch layer"), text)
+        first_entry = [line for line in text.splitlines() if line.strip()][-1]
+        self.assertIn("- id: mcp-nuclear-dev", text)
+        self.assertTrue(any(line.startswith("- id: ") for line in text.splitlines()), first_entry)
+
+    def test_mcp_block_enables_the_row_the_kit_bundle_inserts_disabled(self) -> None:
+        """kit bundle 插入的 mcp 行带 `disabled: !!js !NUCLEAR_DEV_MCP_SERVER`，覆盖行要显式关掉它。"""
+        module = load_module()
+        result = module.patch_rows(self.profile, 3082, self.state, "/usr/bin/python3", dry_run=True)
+        preview = result["preview"]
+        block = preview[preview.index("- id: mcp-nuclear-dev"):]
+        self.assertIn("  disabled: false\n", block)
+        self.assertNotIn("process.env", preview)
+
+
 class SkillProbeTest(unittest.TestCase):
     def test_present_skills_detects_nothing(self) -> None:
         module = load_module()
