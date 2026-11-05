@@ -46,6 +46,8 @@ DEFAULT_PROFILE = "nuclear-dev-agent"
 DEFAULT_PORT = 3082
 BUNDLES = ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "nuclear-dev-agent", "nuclear-dev-kit"]
 PATCH_MARKER = "# === nuclear-dev-kit 部署块：由 tools/deploy_nuclear_dev_agent.py 追加 ==="
+# 只有一个空流的 patch（模板 profile 的初始内容）：`[]` 与追加的 `- id:` 不能共存。
+EMPTY_FLOW_LIST = re.compile(r"^[ \t]*\[\][ \t]*\n?", re.MULTILINE)
 # 三块分开写：已有的 profile 往往已有 webserver 或 nuclear-dev-agent 行，只补缺的那块。
 PATCH_BLOCKS = {
     "webserver": """- id: webserver
@@ -62,8 +64,11 @@ PATCH_BLOCKS = {
       python: %(python)s
 """,
     # 核能门禁的 MCP 桥接：绝对路径，所以不需要任何环境变量。
+    # kit bundle 自己插入了同 id 的一行，带 `disabled: !!js !process.env.NUCLEAR_DEV_MCP_SERVER`；
+    # 这里的覆盖行必须显式写 disabled: false，否则只覆盖 config 会留下「未设环境变量就关闭」。
     MCP_ENTRY: """- id: mcp-nuclear-dev
   name: '@deepseek-ai/dsh-mcp-client'
+  disabled: false
   config:
     serverName: nuclear-dev
     transport: stdio
@@ -213,6 +218,15 @@ def merge_bundles(path: Path, dry_run: bool) -> Dict[str, Any]:
     return result
 
 
+def _only_comments_or_empty_list(text: str) -> bool:
+    """`text` 是否只有空行、注释和一个空的 `[]` —— 也就是「还没有任何条目」。"""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and stripped != "[]":
+            return False
+    return True
+
+
 def patch_rows(profile_dir: Path, port: int, state_dir: Path, python: str, dry_run: bool) -> Dict[str, Any]:
     """把缺的三块配置追加到 profile 的 cordis.patch.yml，已有同 id 的行原样保留。
 
@@ -221,6 +235,9 @@ def patch_rows(profile_dir: Path, port: int, state_dir: Path, python: str, dry_r
     """
     path = profile_dir / "cordis.patch.yml"
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if _only_comments_or_empty_list(text):
+        # DSH 新建 profile 时写的是注释加一个空的 `[]`；留着它再追加 `- id:` 就是非法 YAML。
+        text = EMPTY_FLOW_LIST.sub("", text)
     values = {
         "port": port,
         "state_dir": str(state_dir),
