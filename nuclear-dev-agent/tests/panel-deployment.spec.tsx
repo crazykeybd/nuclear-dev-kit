@@ -19,6 +19,10 @@ it('saves this machine\'s settings in the Deployment settings through DSH\'s con
   // Accounts are on the Source settings; the Plugin Manager page, where those are not at hand, shows them here.
   expect(text()).not.toContain('@agent-bot')
   for (const moved of ['仓库克隆', '工单 worktree 目录', '禁用的命令']) expect(text()).not.toContain(moved)
+  // The kit the agent reads stands beside the state directory it keeps: both are deployment facts, set in the file.
+  expect(text()).toContain(zh.deploymentKitPath)
+  expect(text()).toContain('/srv/nuclear-dev-kit')
+  expect(text()).toContain(zh.deploymentKitPython)
   expect(text()).toContain(zh.deploymentIntro)
   // A limit applies at once, so a draft of one says only that it is unsaved, even while Assignments run.
   await type(field<HTMLInputElement>(zh.deploymentContextTimeout), '20000')

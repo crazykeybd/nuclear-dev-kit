@@ -72,6 +72,14 @@ export function DeploymentPage({ setup, form, accounts: showAccounts }: { setup:
           <span className="dt-field-head">{t('deploymentStateDir')}<InfoTip text={t('deploymentStateDirHint')} /></span>
           <span className="dt-mono">{setup.machine.stateDir}</span>
         </div>
+        <div className="dt-field">
+          <span className="dt-field-head">{t('deploymentKitPath')}<InfoTip text={t('deploymentKitPathHint')} /></span>
+          <span className="dt-mono">{setup.machine.nuclear.kitPath || t('nuclearOffShort')}</span>
+        </div>
+        <div className="dt-field">
+          <span className="dt-field-head">{t('deploymentKitPython')}<InfoTip text={t('deploymentKitPythonHint')} /></span>
+          <span className="dt-mono">{setup.machine.nuclear.python}</span>
+        </div>
       </Section>
       <Section title={t('deploymentLimits')} hint={t('deploymentLimitsHint')}>
         {limit('promptMaxChars', t('deploymentPromptMaxChars'))}

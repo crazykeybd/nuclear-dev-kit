@@ -101,7 +101,8 @@ export const problemOf = (code: SetupCode, values: Record<string, string> = {}) 
 // The kinds' configurations differ, and the fake reads them only as the records the views carry.
 const KINDS = [feishuKind, githubKind] as unknown as SourceKind[]
 export const MACHINE = { stateDir: '/srv/nuclear-dev-agent', promptMaxChars: 100000, admissionContextMaxPages: 10,
-  admissionContextTimeoutMs: 15000 }
+  admissionContextTimeoutMs: 15000, nuclear: { kitPath: '/srv/nuclear-dev-kit', python: 'python3', timeoutMs: 20000,
+    maxProjects: 12, refreshSeconds: 30 } }
 
 type Settings = ReturnType<typeof SettingsSchema.parse>
 export interface PanelServer {
