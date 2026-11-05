@@ -115,6 +115,20 @@ python3 nuclear-dev-kit/skills/nuclear-install/scripts/register.py claude \
 
 默认 patch 只暴露只读工具，`--allow-write` 仍需显式添加；任何形态都不提供批准工具。
 
+## 在 dsh-superagent 中使用
+
+本仓库把上游 [dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype) 的源码复制到
+[`superagent/`](superagent/)（零改动、可整目录替换，来源与更新方式见 [superagent/VENDOR.md](superagent/VENDOR.md)），
+让「主动接活 → 开 Ticket → 独立 Session 执行 → 回帖」这条链路直接跑核能七阶段流程：
+
+- superagent 的每个 Ticket 在自己的 Git worktree 里执行，执行器 Session 的项目级 Skill 根是
+  `<工作目录>/.dsh/skills`；
+- 在 superagent 的 prepare 命令后追加一条本包现成的安装命令，把十个 `nuclear-*` Skill 装进该 worktree；
+- 执行器于是按 `nuclear-plan` → … → `nuclear-release` 的门禁干活，判定仍由 `nuclearlib.py` 给出，
+  不生成、也不允许伪造批准。
+
+完整步骤（构建副本、两个 bundle 安装、prepare 命令写法、验证与限制）见 [docs/superagent.md](docs/superagent.md)。
+
 ## A2A 面（远程 V&V）
 
 独立 V&V 由外部组织开展时，用 `nucleara2a.py` 生成投影包并委托。客户端与服务端均已实现。
@@ -208,6 +222,10 @@ nuclear-dev-kit/
     build_dist.py            # 可复现打包
     gen_catalog.py           # 生成并校验 catalog.json
     check_docs.py            # 校验文档与内核一致
+    check_superagent_vendor.py # 校验 superagent/ 副本完整性与来源
+  superagent/                # 上游 dsh-superagent 源码副本（零改动，见 VENDOR.md）
+  docs/
+    superagent.md            # 在 dsh-superagent 中跑核能流程的部署说明
 ```
 
 共享契约只在 `skills/nuclear-dev/references/` 维护。各宿主必须调用同一套 `nuclearlib.py`，禁止复制或弱化门禁规则。
