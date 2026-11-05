@@ -21,7 +21,7 @@ export async function apply(ctx: Context, config: DeploymentConfig): Promise<voi
   const runtime = new Runtime(ctx, machine, restart)
   ctx.effect(() => async () => { await runtime.stop() })
   await runtime.ready
-  ctx.logger.info(runtime.configured() ? 'nuclear-dev-agent ready; the nuclear-dev-agent sidebar entry opens the management panel' : `nuclear-dev-agent is waiting for setup: ${runtime.setupProblem?.detail ?? ''}`)
+  ctx.logger.info(runtime.configured() ? 'nuclear-dev-agent ready; the Nuclear Dev Agent sidebar entry opens the management panel' : `nuclear-dev-agent is waiting for setup: ${runtime.setupProblem?.detail ?? ''}`)
 }
 export type { Deployment, DeploymentConfig } from './deployment.ts'
 export * from './core/index.ts'

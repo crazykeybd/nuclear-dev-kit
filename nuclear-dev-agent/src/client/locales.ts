@@ -13,7 +13,7 @@ const TEXT = {
   confirm: ['确定', 'Confirm'],
   loading: ['正在读取…', 'Loading…'],
   loadMore: ['加载更多', 'Load more'],
-  offline: ['无法连接到 nuclear-dev-agent 服务。请确认它正在运行（nuclear-dev-agent status），然后重试。', 'Cannot reach the nuclear-dev-agent service. Check that it is running (nuclear-dev-agent status), then retry.'],
+  offline: ['无法连接到 nuclear-dev-agent 服务。请确认它正在运行（scripts/nuclear-dev-agent status），然后重试。', 'Cannot reach the nuclear-dev-agent service. Check that it is running (scripts/nuclear-dev-agent status), then retry.'],
   serverError: ['nuclear-dev-agent 服务内部错误（{status}），请查看运行日志后重试。', 'nuclear-dev-agent service error ({status}). Check the log, then retry.'],
   requestFailed: ['请求失败（{status}）。', 'Request failed ({status}).'],
   empty: ['—', '—'],
