@@ -116,17 +116,15 @@ def plan_build(vendor: Path, skip: bool, pnpm: str) -> Dict[str, Any]:
     if skip or built:
         return {"step": "build", "needed": False, "reason": "已有 lib/ 或 --skip-build", "commands": []}
     if not vendor.is_dir() or not (vendor / "package.json").is_file():
-        raise DeployError("找不到 superagent/ 上游副本；先在本仓库执行 git checkout 恢复它")
-    if shutil.which(pnpm) is None:
-        raise DeployError(
-            "没找到 %s：构建 superagent 需要 Node.js 22.19+ 或 24+ 与 pnpm。"
-            "装好后重跑，或先用 --skip-build 并自行构建。" % pnpm
-        )
+        raise DeployError("找不到上游副本目录（%s）；先在本仓库执行 git checkout 恢复 superagent/" % vendor)
+    # 预览阶段不因为缺 pnpm 就失败：先把缺什么摆出来，真正执行时才拦。
+    missing_tools = [] if shutil.which(pnpm) else [pnpm]
     return {
         "step": "build",
         "needed": True,
         "reason": "superagent/lib 尚未构建",
         "commands": [[pnpm, "install"], [pnpm, "build"]],
+        "missing_tools": missing_tools,
     }
 
 
@@ -292,6 +290,11 @@ def execute(args: argparse.Namespace) -> Tuple[int, Dict[str, Any]]:
         return 0, payload
 
     if build["needed"]:
+        if build.get("missing_tools"):
+            raise DeployError(
+                "没找到 %s：构建 superagent 需要 Node.js 22.19+ 或 24+ 与 pnpm。"
+                "装好后重跑，或先用 --skip-build 并自行构建。" % "、".join(build["missing_tools"])
+            )
         for argv in build["commands"]:
             code, output = run(argv, cwd=vendor)
             payload["steps"].append({"step": "ran", "command": argv, "exit": code, "output": output[-2000:]})
@@ -389,6 +392,8 @@ def _print_human(payload: Dict[str, Any]) -> None:
             print("  %s：%s" % (step["step"], " → ".join(" ".join(argv) for argv in step["commands"])))
         elif step.get("command"):
             print("  %s：%s" % (step["step"], " ".join(step["command"])))
+        elif step.get("missing_tools"):
+            print("  %s：缺少 %s（执行前需要先装好）" % (step["step"], "、".join(step["missing_tools"])))
         elif step.get("needed") is False:
             print("  %s：跳过（%s）" % (step["step"], step.get("reason", "")))
         else:

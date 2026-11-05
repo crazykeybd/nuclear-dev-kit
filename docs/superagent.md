@@ -18,7 +18,7 @@ python3 tools/deploy_superagent.py --yes      # 确认后执行
 
 | 步骤 | 做什么 | 为什么 |
 |---|---|---|
-| build | 在 `superagent/` 里 `pnpm install && pnpm build` | 入库的是源码，`lib/` 按上游 `.gitignore` 不入库 |
+| build | 在 `superagent/` 里 `pnpm install && pnpm build` | 入库的是源码，`lib/` 按上游 `.gitignore` 不入库；缺 Node/pnpm 时预览会标出来，执行阶段直接报错而不装一半 |
 | skills | 把十个 `nuclear-*` 装到 `$DSH_HOME/skills` | DSH 的**用户级** Skill 根，所有 profile 与 Ticket 工作目录都能看到 |
 | profile | `dsh <profile> --from-default-profile web --dump-config` | profile 不存在时由 DSH 模板创建，已存在则沿用 |
 | link | `dsh plugin --profile <profile> add link:<superagent>`，再 `link:<本仓库>` | 把两个 bundle 链接进 profile |

@@ -101,6 +101,43 @@ class PlanTest(unittest.TestCase):
             self.assertEqual(payload["skills_root"], str(Path(home).resolve() / "skills"))
             self.assertEqual(payload["profile_dir"], str(Path(home).resolve() / "profiles" / "superagent"))
 
+    def test_dry_run_survives_missing_pnpm_and_reports_it(self) -> None:
+        """预览阶段不该因为机器上没有 pnpm 就失败：先告诉人缺什么。"""
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp) / "home"
+            vendor = make_vendor(Path(temp) / "vendor")
+            completed = support.run_script(
+                DEPLOY,
+                [
+                    "--json", "--dsh-home", str(home), "--vendor-dir", str(vendor),
+                    "--pnpm-bin", str(Path(temp) / "no-such-pnpm"),
+                ],
+                env=support.child_env(),
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            payload = json.loads(completed.stdout)
+            self.assertTrue(payload["ok"], payload)
+            build = [step for step in payload["steps"] if step["step"] == "build"][0]
+            self.assertTrue(build["needed"])
+            self.assertEqual(build["missing_tools"], [str(Path(temp) / "no-such-pnpm")])
+
+    def test_execute_fails_when_pnpm_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp) / "home"
+            vendor = make_vendor(Path(temp) / "vendor")
+            completed = support.run_script(
+                DEPLOY,
+                [
+                    "--json", "--yes", "--dsh-home", str(home), "--vendor-dir", str(vendor),
+                    "--pnpm-bin", str(Path(temp) / "no-such-pnpm"),
+                ],
+                env=support.child_env(),
+            )
+            self.assertEqual(completed.returncode, 2, completed.stderr)
+            payload = json.loads(completed.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertIn("pnpm", payload["error"])
+
     def test_plan_rejects_skip_build_without_lib(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp) / "home"
