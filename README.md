@@ -1,6 +1,11 @@
-# 核能软件开发 Skill 包
+# nuclear-dev-kit：核能软件七阶段研发能力与 nuclear-dev-agent 智能体
 
 `nuclear-dev-kit` 把核能数值软件的七阶段研发流程封装为可移植的 Agent Skill 包。它面向核工程、科学计算和受控软件研发场景，提供统一的阶段产物 Schema、证据登记、需求-设计-实现-测试-V&V 追溯，以及逐阶段人工批准停止点。
+
+仓库由两部分组成：
+
+- `skills/`：十个 `nuclear-*` Skill 与唯一门禁实现 `nuclearlib.py`，可装进 Claude Code、Codex、opencode、Reasonix、DeepSeek Harness 或任意 Agent；
+- [`nuclear-dev-agent/`](nuclear-dev-agent/)：仓库主体，一个 DeepSeek Harness bundle（由 `superagent` 原型改造，来源见 [FORK.md](nuclear-dev-agent/FORK.md)），把七阶段装进「接活 → 开 Ticket → 独立 Session 执行 → 回帖」的链路，并带网页面板；一条命令部署见下文「智能体」一节。
 
 > 不替代签署、监管判断或真实测试；不生成批准；不伪造结果；门禁失败即停止。
 > 门禁通过不等同监管批准或真实工程合规。
@@ -10,6 +15,7 @@
 - 新建或维护核能数值求解器、物理模型、材料/物性库及其测试体系。
 - 需要把物理需求、数值方法、代码实现、测试证据和 V&V 结论串成一条可审计链路。
 - 需要在 Claude Code、Codex、opencode、Reasonix、DeepSeek Harness 或通用 Agent 中复用同一套门禁与工作流。
+- 想让智能体自己接活、按七阶段推进，并在网页面板上看到每个工作区的阶段板：用 `nuclear-dev-agent`。
 
 本包不是质量保证体系的认证，也不替代适用法规、标准、持证人员判断或真实工程测试。无法执行命令时，Agent 必须明确报告限制，不能把静态文件说成门禁通过。
 
@@ -87,7 +93,14 @@ python3 nuclear-dev-kit/skills/nuclear-install/scripts/register.py claude \
 
 ## DeepSeek Harness (DSH) 支持
 
-本项目可作为 DeepSeek Harness bundle 部署，分三层，按需取用：
+本项目可作为 DeepSeek Harness bundle 部署。想尽快跑起来，直接用一条命令（见下节「智能体」）：
+
+```bash
+python3 tools/deploy_nuclear_dev_agent.py         # 预览
+python3 tools/deploy_nuclear_dev_agent.py --yes   # 执行：构建 agent、装 Skill、建 profile、写配置
+```
+
+手工装配时分三层，按需取用：
 
 1. **Skill 层（必装）**：`install.py` / `quickinstall.py` 支持 `dsh` 宿主，项目级装到 `<项目>/.dsh/skills`，全局装到 `$DSH_HOME/skills`（或 `~/.dsh/skills`）。这两个目录是 DSH 内置 `@deepseek-ai/dsh-skill-filesystem` 的扫描根，装完新开会话即可看到十个 `nuclear-*` Skill。
 
@@ -204,6 +217,7 @@ python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目>
 | Codex | `.agents/skills` | `$CODEX_HOME/skills` 或 `~/.codex/skills` |
 | opencode | `.opencode/skills` | `~/.config/opencode/skills` |
 | Reasonix | `.reasonix/skills` | `$REASONIX_HOME/skills`；Windows `%APPDATA%\reasonix\skills`；其他 `~/.reasonix/skills` |
+| DSH（DeepSeek Harness） | `.dsh/skills` | `$DSH_HOME/skills` 或 `~/.dsh/skills` |
 | generic | `.agents/skills` | `~/.agents/skills` |
 
 `all` 会安装到所有目标，也按绝对路径去重。安装器只替换十个 Skill 子目录，不替换整个 `skills/`，并排除 `__pycache__` 与 `*.pyc`。
@@ -214,6 +228,8 @@ python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目>
 nuclear-dev-kit/
   README.md
   INSTALL.md
+  package.json               # DSH bundle 声明：dsh.bundle.patch → cordis.patch.yml
+  cordis.patch.yml           # kit 的 MCP 桥接层（默认关闭；部署脚本会写入带绝对路径的一行）
   catalog.json               # 由 tools/gen_catalog.py 生成，勿手改
   reasonix-plugin.json
   .claude-plugin/
@@ -239,6 +255,8 @@ nuclear-dev-kit/
     build_dist.py            # 可复现打包
     gen_catalog.py           # 生成并校验 catalog.json
     check_docs.py            # 校验文档与内核一致
+    check_hosts.py           # 校验各宿主安装目标
+    check_reasonix_deploy.py # 校验 Reasonix 部署片段
     check_nuclear_dev_agent.py # 校验 agent 包的身份、核能模块与来源记录
     deploy_nuclear_dev_agent.py      # 一条命令部署「核能门禁 + nuclear-dev-agent」
   nuclear-dev-agent/                 # 本仓库主体：核能软件开发智能体（来源与改动见 FORK.md）
@@ -257,10 +275,19 @@ nuclear-dev-kit/
 ## 验证
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s nuclear-dev-kit/tests -v
+# 在仓库根执行
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 
-find nuclear-dev-kit \( -name '__pycache__' -o -name '*.pyc' \) -print
+# 文档、目录、宿主目标与 agent 包身份的一致性
+python3 tools/check_docs.py
+python3 tools/gen_catalog.py --check
+python3 tools/check_hosts.py
+python3 tools/check_nuclear_dev_agent.py
+
+find . \( -name '__pycache__' -o -name '*.pyc' \) -print
 ```
+
+`nuclear-dev-agent/` 的 TypeScript 侧另需 Node 22.19+ 与 pnpm：`cd nuclear-dev-agent && pnpm install && pnpm build`，`pnpm test` 跑 vitest。
 
 测试中的批准只存在于隔离临时目录，是用于验证门禁行为的 fixture，不是真实批准。
 
