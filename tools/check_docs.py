@@ -36,7 +36,7 @@ def doc_files(extra: List[Path]) -> List[Path]:
     files = [REPO / "README.md", REPO / "INSTALL.md"]
     files.extend(sorted((REPO / "skills").glob("*/SKILL.md")))
     files.extend(sorted((REPO / "skills").glob("*/references/*.md")))
-    # 本仓库自己的部署说明；superagent/ 是上游副本，不在这里扫。
+    # 本仓库自己的部署说明；nuclear-dev-agent/ 是主体包（上游来源见其 FORK.md），不在这里扫。
     files.extend(sorted((REPO / "docs").glob("*.md")))
     files.extend(extra)
     return [path for path in files if path.is_file() and path.name not in SKIP_DOCS]

@@ -1,0 +1,17 @@
+# Example profile configuration ($DSH_HOME/profiles/<profile>/cordis.patch.yml).
+# Replace <placeholders> before first start; see docs/006-deployment.md.
+- id: webserver
+  config:
+    host: 127.0.0.1
+    port: 3082
+- id: nuclear-dev-agent
+  config:
+    stateDir: <absolute path, for example /home/me/.dsh/state/nuclear-dev-agent>
+    # The nuclear development flow: the kit whose nuclearlib.py judges the seven stages, and the interpreter that runs it.
+    # tools/deploy_nuclear_dev_agent.py fills both in; leave kitPath empty to run the agent without the flow.
+    nuclear:
+      kitPath: <absolute path of nuclear-dev-kit, for example /home/me/src/nuclear-dev-kit>
+      python: python3
+# Feishu is optional: uncomment to enable its Source, then set the bot's lark-cli on the Feishu Source.
+# - id: nuclear-dev-agent-feishu
+#   disabled: false
