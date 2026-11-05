@@ -303,7 +303,7 @@ dsh plugin --profile <profile> add "link:<本包根目录>"
 
 ### 4.7 在 nuclear-dev-agent 中运行（一条命令）
 
-[`nuclear-dev-agent/`](../nuclear-dev-agent/) 是本仓库主体：一个 DSH bundle，把本包的七阶段门禁装进
+[`nuclear-dev-agent/`](nuclear-dev-agent/) 是本仓库主体：一个 DSH bundle，把本包的七阶段门禁装进
 「接活 → 开 Ticket → 独立 Session 执行 → 回帖」的链路，并带网页面板。一条命令即可部署：
 
 ```bash
