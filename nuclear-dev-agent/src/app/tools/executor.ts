@@ -3,20 +3,24 @@ import { z } from 'zod'
 import { liveTicket, type EngineForExecutor, type Ticket } from '../../core/index.ts'
 import { IM_WORDS } from '../../infra/text.ts'
 import { claimPull, readPull } from '../../sources/github-pull.ts'
+import { nextStageAgent, STAGE_AGENTS } from '../../nuclear/index.ts'
 import type { SourceContext } from '../../sources/host.ts'
 import { readResource, type ResourceHost } from '../resources.ts'
 import type { Store } from '../store.ts'
 import { reportRelay, threadFollowedNotice } from '../notices.ts'
+import type { Nuclear } from '../nuclear.ts'
 import type { Sessions } from '../sessions.ts'
 import { AcknowledgementSchema, readTool, tool, type Tool } from './tool.ts'
 
 export interface ExecutorToolsHost {
-  readonly engine: Pick<EngineForExecutor, 'report' | 'reply' | 'markUnrelated' | 'handback' | 'followForContext'>
+  readonly engine: Pick<EngineForExecutor, 'report' | 'reply' | 'markUnrelated' | 'handback' | 'followForContext' | 'stageAccepted'>
   readonly store: Pick<Store, 'tickets' | 'replyStatus' | 'atomic'>
   readonly sessions: Pick<Sessions, 'relay' | 'notify'>
   readonly resources: ResourceHost
   /** GitHub Source context whose pull-request rules govern claiming a reported PR. */
   readonly github: SourceContext
+  /** The kit a stage agent's stage is judged by, read afresh when its worker reports the stage finished. */
+  readonly nuclear: Pick<Nuclear, 'stageVerdict'>
   sendReplies(): Promise<void>
 }
 
@@ -86,6 +90,25 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
         const current = host.store.tickets.get(ticketId)
         if (!current || !liveTicket(current)) throw new Error('Ticket ended (PR was closed or work finished); do not resume it')
         const pull = args.pr_number != null ? await readPull(host.github, args.pr_number, signal) : undefined
+        // A stage agent finishes its stage by the kit's gate, never by its own word: the host asks the kit, and passes the
+        // ticket on only when the kit accepts the stage. The kit's errors are returned as its own words.
+        const stage = current.execution?.stage
+        const verdict = args.state === 'ready' && stage ? await host.nuclear.stageVerdict(current, stage) : undefined
+        if (verdict && !verdict.passed) {
+          throw new Error(`The kit does not accept stage ${stage}: ${verdict.errors.join('; ') || 'it gave no reason'}. `
+            + 'Finish the stage and run its gate again, or report blocked with what the gate says; a stage the kit does not accept never passes to another agent.')
+        }
+        const next = stage && verdict ? nextStageAgent(stage) : undefined
+        // The last stage ends the ticket with its work, as any ticket ends: its own ready report says so.
+        if (next) {
+          return host.store.atomic(() => {
+            const refused = pull && claimPull(host.github, ticketId, pull)
+            if (refused) throw new Error(refused)
+            const updated = host.engine.stageAccepted(ticketId, stage!, args.summary)
+            return { reported: true, notification: 'internal_only', stage: { accepted: stage, handed_to: next.stage,
+              agent: STAGE_AGENTS[next.stage].name.en }, ticket: { id: updated.id, stage: updated.execution?.stage } }
+          })
+        }
         // Claim the PR, record the report, and queue the relay atomically so a rejected PR claim or invalid report leaves no partial state, and a recorded report always reaches the main Session.
         return host.store.atomic(() => {
           const refused = pull && claimPull(host.github, ticketId, pull)

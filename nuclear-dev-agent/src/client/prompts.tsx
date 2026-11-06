@@ -175,7 +175,10 @@ function BuiltInEditor({ config, view, part, onEdit }: {
 }
 
 type Preview = ApiResponse<'POST prompts/preview'>
-type Target = 'orchestrator' | 'worker' | `skill/${string}`
+type Target = 'orchestrator' | 'worker' | `skill/${string}` | `stage/${string}`
+/** The locale key of each stage agent's label, which the nuclear flow names. */
+const STAGE_LABEL = { plan: 'stage.plan', requirements: 'stage.requirements', design: 'stage.design',
+  implementation: 'stage.implementation', test: 'stage.test', vv: 'stage.vv', release: 'stage.release' } as const
 const KIND_LABEL = { team: 'promptPartTeam', fixed: 'promptPartFixed', generated: 'promptPartGenerated' } as const
 function FullPrompt({ config, view, dirty, revision, onEdit }: {
   config: PromptConfig; view: PromptsView; dirty: boolean; revision: number; onEdit: (name: string) => void
@@ -196,9 +199,10 @@ function FullPrompt({ config, view, dirty, revision, onEdit }: {
   const shown = dirty ? compare : 'default'
   // A built-in skill is a built-in part, by its key.
   const team = isSkill(target) && Object.hasOwn(preview.config.skills, target.slice(6))
-  const parts: { name: string; kind: 'team' | 'fixed' | 'generated'; key?: string; heading?: string; text: string }[] = isSkill(target)
+  type Line = { name: string; kind: 'team' | 'fixed' | 'generated'; key?: string; heading?: string; text: string }
+  const parts: Line[] = isSkill(target)
     ? [{ name: target, kind: team ? 'team' : 'fixed', ...team ? {} : { key: target }, text: preview.value.skills[target.slice(6)] ?? '' }]
-    : preview.value.parts[target]
+    : (preview.value.parts as Record<string, Line[]>)[target] ?? []
   const builtIn = (key: string) => view.parts.find(part => part.key === key)
   return <>
     <div className="dt-subhead">
@@ -206,6 +210,8 @@ function FullPrompt({ config, view, dirty, revision, onEdit }: {
         onChange={event => setTarget(event.target.value as Target)}>
         <option value="orchestrator">{valueLabel(t, 'promptRole', 'orchestrator')}</option>
         <option value="worker">{valueLabel(t, 'promptRole', 'worker')}</option>
+        {Object.keys(preview.value.agents).map(key => <option key={key} value={key}>{t(STAGE_LABEL[key.slice('stage/'.length) as
+          keyof typeof STAGE_LABEL])}</option>)}
         {Object.keys(preview.value.skills).map(name => <option key={name} value={`skill/${name}`}>{sectionLabel(t, view,
           `skill/${name}`)}</option>)}
       </select>

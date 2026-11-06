@@ -60,6 +60,8 @@ patch 行已在位就不重写。
 | 扫描缓存 | `nuclear-dev-agent/src/app/nuclear.ts` | 每个目录缓存一次扫描（默认 30 秒），面板「重新检查」立即重跑；上限 `nuclear.maxProjects` |
 | 管理 API | `GET /orchestrator/api/nuclear`、`POST …/nuclear/refresh`，以及工单详情里的 `nuclear` | 面板数据来源 |
 | 提示词 | `nuclear-dev-agent/prompts/nuclear.md` → 内置段落 `runtime/nuclear` | 主 Session 与执行器都读到：阶段、命令，以及不可越界的规则 |
+| 阶段智能体表 | `nuclear-dev-agent/src/nuclear/agents.ts` | 总控智能体与七个阶段智能体：名字（中英）、Skill、产物、一句话职责，以及「下一个是谁」 |
+| 派活提示词 | `nuclear-dev-agent/prompts/chief.md`、`prompts/stage/<阶段>.md` → `runtime/chief`、`runtime/stage/<阶段>` | 总控怎么选阶段、怎么派；每个阶段智能体自己那一段。团队可在面板改写 |
 | 执行环境 | `DSH_NUCLEAR_DEV_AGENT_KIT`、`DSH_NUCLEAR_DEV_AGENT_NUCLEARCTL` | 本机 kit 目录与门禁命令行，prepare 命令和 Session 都用得上 |
 
 三条硬约束写死在提示词里，也由代码结构保证：
@@ -67,6 +69,15 @@ patch 行已在位就不重写。
 - **判定只有一处**：阶段过不过只由 `skills/nuclear-dev/scripts/nuclearlib.py` 说，agent 侧没有任何规则副本；
 - **批准只能由人签**：agent 没有任何创建、修改或签署批准的手段，缺批准的阶段在面板上显示为「等待人工批准」；
 - **门禁失败即停**：门禁阻断时，执行器报告里带的是门禁原话，工作停在该阶段，不进入下一阶段。
+
+### 总控智能体与七个阶段智能体
+
+一个工单由**一个**阶段智能体做，不是一次做七个：总控智能体（主 Session）接单时用 `orchestrator_route` 的
+`stage` 字段指定这个工单是哪个阶段，工单与每次派工都记下这个阶段。产物写完后，执行器报 `ready`，宿主**自己**
+用 `nuclearctl.py status` 复查该阶段：门禁不接受，就把门禁原话回给执行器、什么也不记；门禁接受，才把工单交给
+下一个阶段智能体（新派工 + 一条 `stage` 输入），最后一个阶段（发布）之后交给人。总控也能用
+`orchestrator_route` 的 `kind: stage` 把工单退回某个阶段（比如评审要求改设计）。细节见
+[nuclear-dev-agent/docs/010-stage-agents.md](../nuclear-dev-agent/docs/010-stage-agents.md)。
 
 ### 部署参数（profile 的 `cordis.patch.yml`）
 

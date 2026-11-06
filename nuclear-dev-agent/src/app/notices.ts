@@ -2,6 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { followupOwners, key, liveTicket, type DomainEvent, type Ticket, type WorkerReport } from '../core/index.ts'
 import { triggerMessage } from '../executor/dsh.ts'
+import { STAGE_AGENTS, type NuclearStage } from '../nuclear/index.ts'
 import type { SourceRegistry } from '../sources/registry.ts'
 import { repliedTo } from './links.ts'
 import type { Store } from './store.ts'
@@ -55,6 +56,13 @@ export function eventNotice(event: DomainEvent, ticket: (id: string) => Ticket |
   if (event.type === 'trigger.requeued') {
     const id = event.data.triggerId
     return receiptNotice({ trigger_requeued: id, read: `trigger/${id}`, at }, `Trigger ${id} queued for a fresh assessment`)
+  }
+  if (event.type === 'stage.accepted') {
+    const { ticketId, stage, next } = event.data
+    const left = STAGE_AGENTS[stage as NuclearStage], to = next === undefined ? undefined : STAGE_AGENTS[next as NuclearStage]
+    return receiptNotice({ stage_accepted: { ticket_id: ticketId, stage, ...next === undefined ? {} : { handed_to: next } },
+      note: to ? `The ${to.name.en} works that stage now.` : 'That was the last stage: the ticket ends with its work.' },
+      `Ticket ${ticketId}: the kit accepted stage ${left.stage}${to ? `, handed to the ${to.name.en}` : ''}`)
   }
   if (event.type === 'thread.unsubscribed' && event.data.by === 'person') return subscriptionNotice(event.data.threadKey, at)
   if (event.type === 'thread.unsubscribed') {

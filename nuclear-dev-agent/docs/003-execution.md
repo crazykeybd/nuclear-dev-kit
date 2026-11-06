@@ -28,6 +28,28 @@ Executor Sessions run commands without approval as the operator's OS user. Their
 
 The main Session uses `nuclear-dev-agent-router`, with the same 5-second shell and job-wait limits and a smaller tool set for routing. Sessions retain the preset selected at creation. Worker subagents use DeepSeek Harness's `standard` preset.
 
+### Stage agents and the pass to the next one
+
+The chief agent names the stage agent a Ticket works as when it accepts the Ticket; the Ticket records it and each
+Assignment records the agent it works as. Every Assignment of a Ticket runs in the Ticket's one Session, which takes on
+the prompt of the stage agent that works it: a Ticket has one conversation, and the agents in it are told apart by their
+part, their Assignment and their Reports. Document 010 Stage agents, written later, describes the seven agents.
+
+A stage agent finishes its stage by the kit's gate, never by its own word. When its worker reports `ready`, the host reads
+the Ticket's directory from the kit afresh: a stage the kit does not accept is returned to the worker with the kit's own
+errors, and nothing is recorded, so the agent either finishes the artifact or reports `blocked`. A stage the kit accepts
+passes the Ticket to the next stage agent, in the kit's order: the Assignment of the accepted stage ends with the worker's
+`ready` report of it, a new Assignment starts, and its `stage` Input tells the worker which agent it is now. The main
+Session is told, and its panel shows the agent on the Ticket.
+
+The last stage, release, passes the Ticket to nobody: the kit accepts it and the Ticket ends with its work, as any Ticket
+does. A Ticket the chief agent named no stage for has no stage agent: it may carry out whichever stage its work is on, and
+its `ready` report ends it as before, as does a Ticket whose directory the kit cannot read, since no gate judges it then.
+
+The chief agent may also hand an open Ticket to a stage agent itself, with `orchestrator_route` kind `stage`, for work a
+person's message sends back to a stage the Ticket has passed; that Input names the agent too. The kit is never bypassed:
+a Ticket handed to an earlier stage agent runs that stage's gate again before it moves on.
+
 ### Background work and worker slots
 
 When a turn ends with shell jobs or subagents still running, the Ticket keeps its worker slot and stays working. It is not reported as waiting, and the main Session receives no waiting report. A completed job or subagent wakes the Executor with its result in the same slot. Once a turn ends with no background work, the Executor reports waiting normally.

@@ -78,6 +78,8 @@ A reference list of the terms this and the later documents use, with their Chine
 | --- | --- | --- |
 | Agent | 智能体 | The automated team member nuclear-dev-agent runs, acting on Sources through identities such as a GitHub account and a Feishu bot |
 | Main Session | 主 Session | The DSH Session that evaluates Triggers, accepts and dispatches Tickets, and replies; `orchestrator` in code and prompts |
+| Chief agent | 总控智能体 | The role of the main Session now that the stages are agents: it decides which stage a Ticket is for and hands it to that stage agent, and carries out no stage itself |
+| Stage agent | 阶段智能体 | An agent that carries out one of the seven stages, with its artifact, its Skill and its gate; a Ticket works one at a time and passes to the next once the kit accepts the stage |
 | Executor Session | 执行器 Session | The DSH Session an Executor runs for one Ticket; `worker` in code and prompts |
 | Source | 来源 | A stream of events: a kind that a plugin provides, plus one instance configuration |
 | Trigger | 触发 | One immutable event from a Source |

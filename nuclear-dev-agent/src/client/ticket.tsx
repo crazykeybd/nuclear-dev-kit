@@ -57,6 +57,8 @@ function Assignments({ ticket }: { ticket: TicketPageView }) {
           ? 'info'
           : 'neutral'}>{valueLabel(t, 'assignment', item.state)}</Tag>}
         {item.state !== 'running' && item.report && <span>{report(item.report.state)}</span>}
+        {/* Which stage agent the Assignment worked as: the chief agent names one per Assignment, and the kit gates its stage. */}
+        {item.stage && <span>{valueLabel(t, 'stage', item.stage)}</span>}
         <span>{t('assignmentSpan', { from: when(item.startedAt ?? item.createdAt, t('lang')), to: when(item.endedAt ?? item.turnEndedAt,
           t('lang')) || t('now') })}</span>
         {item.endedReason && <span>{reasonLabel(t, item.endedReason)}</span>}
@@ -186,7 +188,9 @@ export function TicketPage({ id }: { id: string }) {
         <InputList inputs={data.inputs.filter(input => input.delivered)} />
       </Details>}
       <Details icon="hash" title={t('identifiers')}>
-        <KeyValues rows={[[t('ticketId'), <span className="dt-mono">{data.id}</span>], [t('executionDirectory'), <span
+        <KeyValues rows={[[t('ticketId'), <span className="dt-mono">{data.id}</span>],
+          ...data.agent ? [[t('ticketAgent'), <span>{valueLabel(t, 'stage', data.agent.stage)}</span>] as [string, ReactNode]] : [],
+          [t('executionDirectory'), <span
           className="dt-mono">{data.directory ?? t('empty')}</span>],
           ...legacy && data.mandate.scope ? [[t('legacyAssignment'), <span
             className="dt-mono dt-clamp">{data.mandate.scope}</span>] as [string, ReactNode]] : []]} />

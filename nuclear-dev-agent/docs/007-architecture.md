@@ -295,7 +295,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/nuclear.ts` | `Nuclear`: which kit this installation runs, one cached scan per Ticket directory, the Tickets' workspaces for the panel, and the interpreter probe |
 | `src/nuclear/types.ts` | The nuclear development flow as the panel and the prompts name it: the kit's seven stages in gate order, each stage's artifact and Skill, a stage report's states, and the snapshot a scan produces. The judgement itself is never made here |
 | `src/nuclear/scan.ts` | Reads one workspace through the kit's own command line: `nuclearctl.py status` for every stage and `nuclearctl.py gate <stage>` for the stage the work stands on, parsed into a snapshot; it adds only the artifact's presence, the approval file's text and the kind of obstacle, and copies the kit's errors verbatim |
-| `src/nuclear/index.ts` | The nuclear module's export surface, types and scan |
+| `src/nuclear/agents.ts` | The chief agent and the seven stage agents: each stage agent's name in both languages, its Skill, its artifact and its one-line mission, and the order the work passes in. It holds no gate rule |
+| `src/nuclear/index.ts` | The nuclear module's export surface, types, agents and scan |
 | `src/setup.ts` | Setup problems: `SetupError`, with a code, the place that fixes it and the English text the log, the main Session and the panel share |
 | `src/policy.ts` | The Policy: the settings schemas by block, the Policy version, the gate and Mandate revalidation |
 | `src/admission.ts` | The admission table's values, each cell's options and defaults, shared with the panel |
@@ -414,6 +415,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/worktrees.spec.ts` | The worktree lifecycle against real git repositories: templates, the porcelain listing, creation from a base branch, reuse of a branch that exists, the checks that guard a removal, the sweep, the hooks and the recorded reasons |
 | `tests/core-engine.spec.ts` | Domain rules on in-memory repositories: receiving, Eval, fan-out, resume and stop, interrupted Assignments, the pause, Policy changes, reports and outcomes, attaching, replies, failed deliveries and dismissed problems |
 | `tests/stage.spec.ts` | The Ticket stages, row by row |
+| `tests/stage-agents.spec.ts` | The stage agents' table and prompt parts, and a Ticket's pass from one agent to the next when the kit accepts a stage |
 | `tests/policy.spec.ts` | Source scope, the gate, the admission table, Mandate revalidation, the Policy version, settings migrations and assessment outcomes |
 | `tests/registry.spec.ts` | `SourceRegistry`: instances, validation, Policy parts, Channels and Thread context |
 | `tests/sources.spec.ts` | The Feishu and GitHub Sources on a `SourceContext`: translation, polls and read positions, the pull request rules, health |

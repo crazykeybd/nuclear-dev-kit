@@ -8,6 +8,7 @@ import { key, latestAssignment, latestReport, liveTicket, runningAssignment, thr
 import type { AssessmentOutcome, Assignment, EngineForExecutor, Execution, Executor, Mandate, PolicyEffect, Ticket, TicketInput, Trigger }
   from '../core/index.ts'
 import type { Machine } from '../deployment.ts'
+import { isNuclearStage, STAGE_AGENTS } from '../nuclear/index.ts'
 import { runAsWorker, verifyDirectory } from '../infra/environment.ts'
 import type { Settings } from '../policy.ts'
 import type { Store } from '../app/store.ts'
@@ -117,7 +118,9 @@ export function ticketExecution(ticket: Ticket, outcome: Extract<AssessmentOutco
   const root = executionRoot(settings, stateDir)
   const { directory } = ticketWorktree({ name, ticket: ticket.id, repo: repositoryName(settings.executor.worktrees.repository || root) },
     settings.executor.worktrees, root)
-  return { name, directory: directory ?? join(root, name), assignment }
+  // The chief agent named the stage agent in the accept; a ticket without one may carry out whichever stage its work is on.
+  const stage = outcome.stage && isNuclearStage(outcome.stage) ? outcome.stage : undefined
+  return { name, directory: directory ?? join(root, name), assignment, ...stage ? { stage } : {} }
 }
 /** Character limits for inline assignment and trigger text in worker messages; longer text is read via its resource. */
 const ASSIGNMENT_CHARS = 1500, TRIGGER_CHARS = 600
@@ -159,8 +162,20 @@ function policyMessage(effect?: PolicyEffect): string {
 /** Resource path under which a worker session reads the full text of a ticket input. */
 export const inputResource = (ticketId: string, inputId: string): string => `ticket/${ticketId}/input/${key(inputId)}`
 /**
+ * Formats the message that hands a ticket to another stage agent: what the kit accepted, which agent the worker is now, and
+ * that the kit judges that agent's stage.
+ */
+function stageMessage(input: Extract<TicketInput, { kind: 'stage' }>): string {
+  const agent = STAGE_AGENTS[input.stage], from = input.from && STAGE_AGENTS[input.from]
+  return [from ? `The kit accepted stage ${from.stage}, and this ticket passes to the ${agent.name.en}.`
+      : `The chief agent hands this ticket to the ${agent.name.en}.`,
+    `You are now the ${agent.name.en}: your stage is ${agent.stage}, your artifact is ${agent.artifact}, and ${agent.skill} is the Skill you carry it out with.`,
+    `That stage agent's part of these instructions follows from now on, and the stage agent you were is over: do not continue its work.`,
+    `Run the gate of stage ${agent.stage} as your part says, and report ready only when it accepts; a stage the kit does not accept never passes to another agent.`].join('\n')
+}
+/**
  * Formats a ticket input for worker delivery: a `trigger` rendered via `trigger` (or by its ID and read path when absent),
- * a `policy-changed` notice, a `resumed` notice, an orchestrator `note`, or a `text` input as written.
+ * a `policy-changed` notice, a `resumed` notice, a stage handoff, an orchestrator `note`, or a `text` input as written.
  * Returns `undefined` for legacy `reopen` inputs, which are historical only because the schema 11 migration converted pending reopen inputs into text inputs.
  */
 export function inputMessage(input: TicketInput, trigger?: object): string | undefined {
@@ -169,6 +184,7 @@ export function inputMessage(input: TicketInput, trigger?: object): string | und
     ...input.context ? { context: true } : {} })
   if (input.kind === 'policy-changed') return policyMessage(input.effect)
   if (input.kind === 'resumed') return RESUMED
+  if (input.kind === 'stage') return stageMessage(input)
   if (input.kind === 'note') return `Note from the orchestrator, for context only: ${input.text}`
   return input.kind === 'text' ? input.text : undefined
 }

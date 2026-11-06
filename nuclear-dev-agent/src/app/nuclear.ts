@@ -6,8 +6,8 @@
 import { execFile } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import type { Ticket } from '../core/index.ts'
-import { isWorkspace, kitProblem, NUCLEAR_DEFAULTS, scanWorkspace, type NuclearIo,
-  type NuclearSettings, type NuclearSnapshot, type SnapshotProblem } from '../nuclear/index.ts'
+import { isWorkspace, kitProblem, NUCLEAR_DEFAULTS, reportIn, scanWorkspace, type NuclearIo,
+  type NuclearSettings, type NuclearSnapshot, type NuclearStage, type SnapshotProblem } from '../nuclear/index.ts'
 
 /** How much of an approval or project file is read: both are small, and a scan must not read a large file by accident. */
 const READ_LIMIT = 256 * 1024
@@ -93,6 +93,17 @@ export class Nuclear {
       this.cache.set(root, { at: Date.now(), snapshot })
       return snapshot
     } finally { this.inflight.delete(root) }
+  }
+  /**
+   * The kit's own verdict on one stage of a Ticket's workspace, read afresh because a stage agent has just written it, or
+   * nothing when the Ticket has no workspace the kit knows or no kit is configured: `passed`, with the kit's errors.
+   * This agent words none of them and decides nothing here.
+   */
+  async stageVerdict(ticket: Ticket, stage: NuclearStage): Promise<{ passed: boolean; errors: string[] } | undefined> {
+    const root = ticket.execution?.directory
+    if (!this.configured() || !root || !existsSync(root) || !isWorkspace(root, existsSync)) return undefined
+    const report = reportIn(await this.snapshot(root, { fresh: true }), stage)
+    return report ? { passed: report.passed, errors: report.errors } : undefined
   }
   /**
    * The nuclear state of one Ticket's directory, or nothing when the Ticket has none yet: its Executor may not have

@@ -46,11 +46,13 @@ REQUIRED_FILES = [
 # 核能集成（本仓库相对上游的改动）；缺一个就说明 refactor 没落地。
 NUCLEAR_FILES = [
     "src/nuclear/index.ts",
+    "src/nuclear/agents.ts",
     "src/nuclear/scan.ts",
     "src/app/nuclear.ts",
     "src/app/views/nuclear.ts",
     "src/client/nuclear.tsx",
     "prompts/nuclear.md",
+    "prompts/chief.md",
 ]
 INSERT_IDS = ["nuclear-dev-agent", "nuclear-dev-agent-github", "nuclear-dev-agent-feishu"]
 # 旧身份：改名前的上游名字，回潮即身份漂移。

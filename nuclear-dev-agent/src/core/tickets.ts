@@ -8,8 +8,19 @@ import type { AssessmentOutcome } from './ports.ts'
 import { EnginePart, type EngineOptions } from './part.ts'
 import type { Replies } from './replies.ts'
 import { canRetry } from './stage.ts'
+import { isNuclearStage, nextStageAgent } from '../nuclear/agents.ts'
+import type { NuclearStage } from '../nuclear/types.ts'
 
 const sameChannel = (a: ChannelRef, b: ChannelRef): boolean => JSON.stringify(a) === JSON.stringify(b)
+/**
+ * The stage agent a chief agent named for an accept, or nothing when it named none: a ticket that may carry out whichever
+ * stage its work is on. A stage the kit does not have refuses the accept rather than starting a ticket nobody can work.
+ */
+function stageOf(stage: string | undefined): NuclearStage | undefined {
+  if (stage === undefined || stage === '') return undefined
+  if (!isNuclearStage(stage)) throw new UserError('unknownStage', { stage })
+  return stage
+}
 /** Whether an Input is a message no person wrote, such as CI's, a bot's, or the main Session's note. */
 export const automatic = (input: TicketInput | undefined): boolean => input?.kind === 'note' || (input?.kind === 'trigger' && !input.human)
 /**
@@ -37,6 +48,8 @@ export class Tickets extends EnginePart {
   create(id: string, decisionId: string, mandate: Mandate, evaluation: Pick<Evaluation, 'triggerIds' | 'primary'>,
     outcome: Extract<AssessmentOutcome, { kind: 'accept' }>, at: string): void {
     const { triggerIds } = evaluation
+    // The stage agent the chief agent named, checked before anything is created so a wrong stage leaves no ticket behind.
+    const stage = stageOf(outcome.stage)
     // Fall back to the last trigger for Evals recorded before `primary` existed.
     const primary = this.repo.triggers.get(evaluation.primary ?? triggerIds.at(-1)!)
     const origin = { triggerId: primary?.id ?? triggerIds[0]!, triggerIds }
@@ -47,6 +60,7 @@ export class Tickets extends EnginePart {
       if (channel && !ticket.channels.some(item => sameChannel(item, channel))) ticket.channels.push(channel)
     }
     ticket = this.options.prepareTicket?.(ticket, outcome) ?? ticket
+    if (stage && ticket.execution) ticket.execution = { ...ticket.execution, stage }
     const assignment = this.newAssignment(ticket)
     this.repo.tickets.save(ticket)
     for (const triggerId of triggerIds) for (const ref of this.repo.triggers.get(triggerId)?.threads ?? []) this.subscribe(id, ref)
@@ -326,6 +340,54 @@ export class Tickets extends EnginePart {
     this.options.executor.start(ticket, assignment)
   }
   /**
+   * The kit accepted `stage`, the stage the ticket works as: hand the ticket to the next stage agent, in the kit's order,
+   * under a new Assignment whose `stage` Input says which agent the worker is now. The Assignment of the accepted stage ends
+   * with its worker's own report of it. The carrier of the ticket is one Session, which carries on as the next agent, with
+   * that agent's prompt.
+   * @throws UserError when the ticket is unknown or has ended, when it works another stage, or when `stage` is the last one.
+   */
+  stageAccepted(ticketId: string, stage: NuclearStage, summary: string): Ticket {
+    const ticket = this.require(ticketId)
+    if (!liveTicket(ticket)) throw new UserError('ticketEnded')
+    const current = ticket.execution?.stage
+    if (current !== stage) throw new UserError('stageMismatch', { stage: current ?? 'none', other: stage })
+    const next = nextStageAgent(stage)
+    if (!next) throw new UserError('noNextStage', { stage })
+    return this.handTo(ticket, next.stage, stage, summary)
+  }
+  /**
+   * The chief agent dispatches an open ticket to the stage agent of `stage`, such as after a person's message sent the work
+   * back to a stage the ticket had passed. The Assignment it leaves ends, and the new one tells the worker which agent it is.
+   * @throws UserError when the ticket is unknown or has ended.
+   */
+  dispatch(ticketId: string, stage: NuclearStage): Ticket {
+    const ticket = this.require(ticketId)
+    if (!liveTicket(ticket)) throw new UserError('ticketEnded')
+    return this.handTo(ticket, stage)
+  }
+  /**
+   * Give an open ticket to the stage agent of `stage`: end the Assignment the ticket leaves, record `summary`, the accepted
+   * stage's worker report, on it, and start a new Assignment whose `stage` Input names the agent the worker is now.
+   * `from` is the stage the kit just accepted, and absent when the chief agent dispatched `stage` itself.
+   */
+  private handTo(ticket: Ticket, stage: NuclearStage, from?: NuclearStage, summary?: string): Ticket {
+    const at = this.now()
+    const previous = runningAssignment(ticket) ?? latestAssignment(ticket)
+    if (previous && previous.state !== 'ended') {
+      if (summary !== undefined) previous.report = { state: 'ready', summary, at }
+      this.endAssignment(ticket, previous, from === undefined ? 'stageDispatched' : 'stageAccepted')
+    }
+    if (ticket.execution) ticket.execution = { ...ticket.execution, stage }
+    const assignment = this.newAssignment(ticket)
+    const input: TicketInput = { id: key('input', ticket.id, 'stage', stage, assignment.id), kind: 'stage', stage, at,
+      ...from === undefined ? {} : { from } }
+    ticket.inputs.push(input); ticket.undelivered.push(input.id); ticket.updatedAt = at
+    this.repo.tickets.save(ticket)
+    this.options.executor.start(ticket, assignment)
+    if (from !== undefined) this.emit('stage.accepted', { ticketId: ticket.id, stage: from, next: stage })
+    return this.require(ticket.id)
+  }
+  /**
    * Put back, ahead of what waits, the Trigger Inputs delivered to `replaced` that no step of its worker took: a cancel may
    * have dropped them, or a step that claimed them was cut off, and the new Assignment's launch takes a copy still waiting
    * in the Session out, so its delivery is the only one. An earlier end let go of what earlier Assignments left.
@@ -379,7 +441,9 @@ export class Tickets extends EnginePart {
   }
   /** Add a pending Assignment; a failed delivery to the one before it no longer concerns the ticket. */
   private newAssignment(ticket: Ticket): Assignment {
-    const assignment: Assignment = { id: key('assignment', ticket.id, String(ticket.assignments.length)), state: 'pending', createdAt: this.now() }
+    const stage = ticket.execution?.stage
+    const assignment: Assignment = { id: key('assignment', ticket.id, String(ticket.assignments.length)), state: 'pending', createdAt: this.now(),
+      ...stage ? { stage } : {} }
     ticket.assignments.push(assignment)
     delete ticket.delivery
     return assignment

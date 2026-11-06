@@ -244,7 +244,9 @@ export class Sessions {
     binding.disposers.push(agent.ctx.systemPrompt.section({ name: 'nuclear-dev-agent-policy', order: 9999, interpolate: false, text: context => {
       const version = this.promptFor(agent, context.signal !== undefined)
       const current = ticket && host.store.tickets.get(ticket.id)
-      const composed = host.prompts.compose(version.config, master ? 'orchestrator' : 'worker', current ? host.environment(current) : undefined)
+      // A worker reads the part of the stage agent its ticket works as, which the ticket names and which changes as the work passes on.
+      const composed = host.prompts.compose(version.config, master ? 'orchestrator' : 'worker', current ? host.environment(current) : undefined,
+        current?.execution?.stage)
       return `[nuclear-dev-agent prompt revision ${version.revision}]\n${composed}\n${current ? mandateInstructions(current.mandate) : ''}`
     }, ...(master ? { complete: true } : {}) }))
     // A recreated skill scope (e.g. after the skills service restarts) starts empty, so reset `binding.skills` before rebinding.

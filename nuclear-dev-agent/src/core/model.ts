@@ -1,4 +1,5 @@
 /** Domain model of a proactive agent: the concepts and their invariants, independent of any source, policy, or executor. */
+import type { NuclearStage } from '../nuclear/types.ts'
 import type { Reason } from './reasons.ts'
 
 /** Actor identity in the source's own vocabulary; Policy decides which actors may originate work on that Source. */
@@ -230,6 +231,8 @@ export interface Assignment {
    * into a step before, the worker read.
    */
   idleAt?: string
+  /** The stage agent this Assignment works as, as its Ticket named it when the Assignment started. */
+  stage?: NuclearStage
 }
 
 export type TicketInput =
@@ -252,6 +255,11 @@ export type TicketInput =
   | { id: string; kind: 'reopen'; decisionId: string; at: string }
   /** A human's message on one of its Threads resumed the ended ticket under its unchanged Mandate. */
   | { id: string; kind: 'resumed'; triggerId: string; at: string }
+  /**
+   * The ticket passes to the stage agent of `stage`: `from` is the stage the kit just accepted, or absent when the chief
+   * agent dispatched `stage` itself, as after a person's message sent the work back to a stage.
+   */
+  | { id: string; kind: 'stage'; stage: NuclearStage; from?: NuclearStage; at: string }
   | { id: string; kind: 'text'; text: string; at: string }
   /** A fact the main Session gave the ticket from other work: context, which asks for nothing and grants nothing. */
   | { id: string; kind: 'note'; text: string; at: string }
@@ -312,7 +320,17 @@ export interface Ticket {
  * Thread closed; the ticket then ends unless its work has not finished (see `Tickets.unfinished`).
  */
 export interface Follow { thread: string; own: boolean; closed?: { at: string; outcome: 'merged' | 'closed' } }
-export interface Execution { name: string; directory: string; assignment: string }
+export interface Execution {
+  name: string
+  directory: string
+  assignment: string
+  /**
+   * The stage agent the ticket works as, which the chief agent named when it accepted the ticket: the stage of its current
+   * work. The host hands the ticket to the next stage agent once the kit accepts this stage, and a stage the kit did not
+   * accept never advances. Absent on a ticket that may carry out any stage itself.
+   */
+  stage?: NuclearStage
+}
 
 /** Whether a ticket is open: it has not ended. */
 export const liveTicket = (ticket: Pick<Ticket, 'ended'>): boolean => !ticket.ended

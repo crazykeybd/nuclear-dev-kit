@@ -17,5 +17,6 @@ Take evidence ids from the command line's JSON only, and never register the same
 Changing a stage artifact invalidates the approval recorded for it, so finish the artifact before anyone signs it.
 Move one stage at a time: finish the artifact, run the gate, and report the stage, the gate's verdict and what a person must decide, instead of listing files.
 A gate that blocks stops the work there: report it with the kit's errors rather than starting the next stage.
-The main Session does not carry out stage work: it decides whether a request starts or continues a stage, and hands that work to a Ticket.
+The work is split: a chief agent hands each Ticket to one of seven stage agents, and this Session carries out the stage its Ticket names, no other.
+The chief agent does not carry out stage work: it decides which stage a request starts or continues, and hands that work to a Ticket.
 The request wording may name a stage, or name a physical or numerical feature; read the workspace first and say which stage the work actually is.
