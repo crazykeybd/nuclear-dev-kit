@@ -87,12 +87,34 @@ export const EvalConfigSchema = z.object({
 }).strict()
 const CommandNameSchema = z.string().regex(/^[A-Za-z0-9._-]+$/).refine(name => name !== '.' && name !== '..', 'Not a command name')
   .refine(name => !WORKER_COMMANDS.includes(name), `${WORKER_COMMANDS.join(', ')} cannot be blocked`)
-/** Executor settings: worker model, concurrency, ticket directory root (empty defaults to `<stateDir>/work`), `prepare` command, and blocked commands. */
+const TemplateSchema = (fallback: string, placeholders: readonly string[]) => z.string().trim().max(LIMITS.worktreeTemplate)
+  .refine(text => !text || placeholders.some(name => text.includes(`{${name}}`)), `A template using ${placeholders.map(name => `{${name}}`).join(' or ')}`)
+  .default(fallback)
+/**
+ * Worktree settings: the repository whose worktrees are Ticket directories, empty to let the prepare command create them.
+ * `path` and `branch` are templates over `{name}` (the Ticket's short name), `{ticket}` (its id) and `{repo}` (the repository's
+ * directory name); `reuse` checks out a branch that exists again, `cleanup` removes a worktree once its Ticket ended and its
+ * branch adds nothing to `base`, and the hooks run in the worktree as it is created and before it is removed.
+ */
+export const WorktreeConfigSchema = z.object({
+  repository: z.string().trim().refine(path => path === '' || path.startsWith('/'), 'An absolute path, or empty to let the prepare command create Ticket directories').default(''),
+  path: TemplateSchema('{name}', ['name', 'ticket']),
+  branch: TemplateSchema('agent/{name}', ['name', 'ticket']),
+  base: z.string().trim().max(LIMITS.worktreeTemplate).default(''),
+  reuse: z.boolean().default(true),
+  cleanup: z.enum(['off', 'safe']).default('safe'),
+  deleteBranch: z.boolean().default(true),
+  hooks: z.object({ create: z.string().max(LIMITS.worktreeHook).default(''), remove: z.string().max(LIMITS.worktreeHook).default('') }).strict()
+    .default(() => ({ create: '', remove: '' })),
+}).strict()
+export type WorktreeConfig = z.infer<typeof WorktreeConfigSchema>
+/** Executor settings: worker model, concurrency, ticket directory root (empty defaults to `<stateDir>/work`), `prepare` command, worktrees and blocked commands. */
 export const ExecutorConfigSchema = z.object({
   model: RoleModelSchema.nullable().default(null),
   maxWorkers: z.number().int().min(LIMITS.maxWorkers.min).max(LIMITS.maxWorkers.max).default(3),
   directory: z.string().trim().refine(path => path === '' || path.startsWith('/'), 'An absolute path, or empty for <stateDir>/work').default(''),
   prepare: z.string().max(LIMITS.prepareCommand).default(''),
+  worktrees: WorktreeConfigSchema.default(() => WorktreeConfigSchema.parse({})),
   blockedCommands: z.array(CommandNameSchema).default([]),
 }).strict()
 export const SourceInstanceSchema = z.object({ enabled: z.boolean().default(true), config: z.record(z.string(), z.unknown()).default({}) }).strict()

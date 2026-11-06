@@ -20,7 +20,7 @@ The tabs follow the workflow: **Overview**, **Source**, **Trigger**, **Eval**, *
 | Source | Source state, setup problems and non-zero counts. Filtered Triggers and dropped messages cover the same 24-hour window as Overview |
 | Trigger | Threads filtered by Subscribed, Evaluating, New Triggers in 24 h, or All Threads. Each Thread shows its Triggers newest first, Decisions and Subscriptions |
 | Eval | Decisions with their reason and matched rules |
-| Execution | Executor state, Pause processing, and Tickets filtered by Open, Pending, Working, Waiting for a Trigger or Ended. Ticket details show actions, authorization, the Ticket's seven nuclear stages when its directory holds a kit workspace, waiting Inputs, Subscriptions and Assignments |
+| Execution | Executor state, Pause processing, the repository's worktrees with the Ticket in each and **Clean up now**, and Tickets filtered by Open, Pending, Working, Waiting for a Trigger or Ended. Ticket details show actions, authorization, the Ticket's seven nuclear stages when its directory holds a kit workspace, waiting Inputs, Subscriptions and Assignments |
 | Nuclear | The kit this installation runs, how to reach it, and one board per Ticket directory: the seven stages in the kit's gate order, each with its state, the kit's messages verbatim, and the approval it records. **Check again** reruns the gate instead of waiting for the scan cache |
 | Settings | Sources, Eval, Execution, Prompts and Deployment. Each group includes its save history |
 
@@ -36,7 +36,7 @@ Ticket details show the originating Trigger, Decision and reason, scope and Poli
 
 - **Sources:** one card per Source with its switch, fields and verified account facts. GitHub also offers receive-all switches for new Issues, pull requests, comments and default-branch CI. Polling and read limits are under Advanced.
 - **Eval:** the Policy version and rules, followed by **On each Source** and the Eval settings. Each Source tab contains its allowed list, membership sync, admission table and bot list. Sync runs at startup and on **Sync now**. The admission table distinguishes receiving scope, sender membership and whether the message addresses the agent. Eval settings select the accept mode, timeout and assessment model.
-- **Execution:** worker model, concurrency, directory root, prepare command and blocked commands. Clicking an available variable inserts it into the prepare command.
+- **Execution:** worker model, concurrency, directory root, prepare command, worktrees and blocked commands. Clicking an available variable inserts it into the prepare command. The worktree fields name the repository whose worktrees become Ticket directories, the path and branch templates, the base branch, the cleanup rule and the hooks; with no repository, the prepare command creates directories as before.
 - **Prompts:** **Edit** changes team sections, built-in parts and skills. **Full prompt** shows the assembled text and compares it with saved text or defaults. **History** lists versions. Edited built-in parts are marked changed and can be reset; templates list their required placeholders.
 
   An upgrade that changes an overridden default marks it **Default updated** (默认内容已更新). The panel compares the old and new defaults above the team's text. If the old default was not recorded, it compares the team's text with the new default instead. Choose **Keep my text** or **Use the new default**. Overrides for removed parts are listed below the tab bar and dropped on the next save.

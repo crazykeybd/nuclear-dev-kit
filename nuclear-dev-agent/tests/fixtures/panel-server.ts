@@ -116,6 +116,8 @@ export interface PanelServer {
   person: TicketRow[]; search: Pick<ApiResponse<'GET search'>, 'items' | 'threads'>; history: HistoryView
   /** The nuclear flow as the host reports it; the default installation has no kit, so the tab says so. */
   nuclear: ApiResponse<'GET nuclear'>
+  /** The Ticket worktrees as the host lists them; the default deployment manages none. */
+  worktrees: ApiResponse<'GET worktrees'>
   requests: { path: string; method: string; body?: unknown }[]
   /** Requests with undeclared query params or invalid body presence; asserted empty after each test. */
   misuse: string[]
@@ -289,6 +291,7 @@ function initial(): PanelServer {
       defaults: defaultPrompts(), parts: Object.entries(builtInParts()).map(([key, part]) => ({ key, ...part, base: builtInBase(part.text) })),
       defaultChanged: [], revisions: [{ ...defaults, changed: [] }], sessions: [], notificationPending: false, next_offset: null },
     tickets: { open: [ticketSummary()], ended: [ended] }, ticketDetails: { t1: ticketDetail() }, nuclear,
+    worktrees: { repository: '', cleanup: 'safe', worktrees: [], lastSweep: null },
     threads: [threadSummary()], threadPages: threadPage,
     person: [ticketSummary({ attention: { id: 'q1', question: '需要确认按钮颜色' }, note: { text: '需要确认按钮颜色', error: false }, reply },
       { stage: 'person', action: 'answer' }),
@@ -376,6 +379,20 @@ const ROUTES: { [K in keyof Api]: Route<K> } = {
     server.settings = { ...server.settings, paused: body.paused }
     server.revisions.pause = (server.revisions.pause ?? 0) + 1
     return { paused: body.paused }
+  } },
+  'GET worktrees': { answer: () => server.worktrees },
+  'POST worktrees/sweep': { answer: () => {
+    if (!server.worktrees.repository) return refuse(400, 'No worktree repository is set')
+    const swept = { at: '2026-09-23T00:00:00Z', removed: [], kept: [], pruned: 0 }
+    server.worktrees = { ...server.worktrees, lastSweep: swept }
+    return { swept }
+  } },
+  'POST worktrees/remove': { body: true, answer: ({ body }) => {
+    const found = server.worktrees.worktrees.find(row => row.branch === body.target || row.path === body.target)
+    if (!found) return { removed: false, reason: `No worktree is ${body.target}` }
+    if (found.ticket?.open) return { removed: false, reason: `${found.path} is the worktree of an open Ticket` }
+    server.worktrees = { ...server.worktrees, worktrees: server.worktrees.worktrees.filter(row => row !== found) }
+    return { removed: true }
   } },
   'PUT settings/:block': { body: true, answer: ({ params: { block }, body }) => {
     const source = block.startsWith('source:') ? KINDS.find(kind => `source:${kind.kind}` === block) : undefined

@@ -15,6 +15,8 @@ import { Later, type Effects } from '../app/effects.ts'
 import { executionRoot, type Variable } from '../app/execution-environment.ts'
 import type { Sessions } from '../app/sessions.ts'
 import { WorktreeNameSchema } from '../app/assessment.ts'
+import { repositoryName, ticketWorktree } from '../infra/worktrees.ts'
+import type { TicketWorktrees } from './worktrees.ts'
 import { resultRelay } from '../app/notices.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import { cancelled, collectJob, killJobs, runningJobs, stopBackground, stopSubagents, until, untilQuiet } from './background.ts'
@@ -32,6 +34,8 @@ const TRANSIENT_TRIES = 3, TRANSIENT_BACKOFF_MS = 15_000
 const BACKGROUND_LIMIT_MS = 30 * 60_000
 /** How long a host stop waits for the workers' background work to stop. */
 const SHUTDOWN_STOP_MS = 10_000
+/** How long after startup the first sweep of ended Tickets' worktrees runs, and how often it runs after that. */
+const SWEEP_FIRST_MS = 2 * 60_000, SWEEP_MS = 15 * 60_000
 /** How long a worker that goes on after a passing failure waits for a worker slot, or for processing to resume, between looks. */
 const SLOT_WAIT_MS = 5000
 /** True when an input comes from a person (a non-context human trigger or a direct text input such as a status request). */
@@ -71,6 +75,8 @@ export interface ExecutorHost {
   readonly lifetime: AbortSignal
   /** Session manager for worker sessions and for relaying worker reports to the main Session. */
   readonly sessions: Pick<Sessions, 'ensure' | 'prompt' | 'promptedId' | 'relay' | 'holds'>
+  /** The deployment's Ticket worktrees: created for a new directory, and swept once the Tickets that used them ended. */
+  readonly worktrees: Pick<TicketWorktrees, 'create' | 'sweep'>
   closing(): boolean
   /** Whether processing is paused, which holds launches and input deliveries. */
   paused(): boolean
@@ -107,7 +113,11 @@ export function ticketExecution(ticket: Ticket, outcome: Extract<AssessmentOutco
   const assignment = ticket.mandate.strength === 'inferred' && ruleIds
     ? `Proactively accepted under ${ruleIds.join(', ')}. Scope: ${outcome.scope}.${precedence}${note}`
     : note.trim()
-  return { name, directory: join(executionRoot(settings, stateDir), name), assignment }
+  // A deployment that manages worktrees reads the directory from its path template; otherwise the Ticket's name names it.
+  const root = executionRoot(settings, stateDir)
+  const { directory } = ticketWorktree({ name, ticket: ticket.id, repo: repositoryName(settings.executor.worktrees.repository || root) },
+    settings.executor.worktrees, root)
+  return { name, directory: directory ?? join(root, name), assignment }
 }
 /** Character limits for inline assignment and trigger text in worker messages; longer text is read via its resource. */
 const ASSIGNMENT_CHARS = 1500, TRIGGER_CHARS = 600
@@ -224,6 +234,8 @@ export class DshExecutor implements Executor {
   private readonly personal = new Map<string, string>()
   /** The timers of workers that go on after a passing failure, which dispose clears. */
   private readonly timers = new Set<ReturnType<typeof setTimeout>>()
+  /** The timer of the next sweep of ended Tickets' worktrees, which dispose clears. */
+  private sweepTimer?: ReturnType<typeof setTimeout>
   /** Registers the `launch` and `delivery` effect handlers; both are held (concurrency limit 0) while processing is paused. */
   constructor(private readonly host: ExecutorHost) {
     this.slots = new WorkerSlots(() => host.store.tickets.open().filter(ticket => this.running(ticket)).map(ticket => ticket.id),
@@ -247,10 +259,19 @@ export class DshExecutor implements Executor {
   private async prepareDirectory(ticket: Ticket): Promise<void> {
     const directory = ticket.execution?.directory ?? ''
     await mkdir(dirname(directory), { recursive: true })
-    const command = this.host.store.settings().executor.prepare.trim()
+    const settings = this.host.store.settings()
+    const command = settings.executor.prepare.trim()
     const env = Object.fromEntries(this.host.environment(ticket).map(variable => [variable.key, variable.value]))
     // Enforce a timeout so a hung prepare command (such as on a credential prompt) fails the ticket instead of holding a worker slot indefinitely.
     const signal = AbortSignal.any([this.host.lifetime, AbortSignal.timeout(PREPARE_TIMEOUT_MS)])
+    // With a worktree repository set, the worktree is this deployment's to create; the prepare command then runs inside the
+    // execution root as an extra setup step, such as fetching the base branch or installing dependencies.
+    if (settings.executor.worktrees.repository) {
+      await this.host.worktrees.create(ticket, signal).catch(async (error: unknown) => {
+        await rmdir(directory).catch(() => { /* Absent, or holding what git wrote, which the output explains. */ })
+        throw new PrepareFailed(`The worktree could not be created: ${error instanceof Error ? error.message : String(error)}`)
+      })
+    }
     if (command) await runAsWorker(this.host.context.subprocess, ['sh', '-c', command], dirname(directory), signal, env)
       .catch(async (error: unknown) => {
         // Remove an empty directory left by a failed prepare command so a later retry does not treat it as already prepared.
@@ -509,12 +530,29 @@ export class DshExecutor implements Executor {
       if (this.retries(assignment.id, error)) { this.resumeAfter(ticket.id, assignment.id, error); return }
       void this.background(Promise.resolve().then(() => { this.failed(ticket.id, String(error)) }))
     }))
+    this.sweepWorktrees()
   }
-  /** Unsubscribes from host agent events and clears any pending transient-retry timers. */
+  /** Unsubscribes from host agent events and clears any pending transient-retry timers and the worktree sweep. */
   dispose(): void {
     for (const dispose of this.disposers.splice(0)) dispose()
     for (const timer of this.timers) clearTimeout(timer)
     this.timers.clear()
+    clearTimeout(this.sweepTimer)
+  }
+  /**
+   * Sweeps the worktrees of Tickets that ended, once after startup and then on a timer, so a deployment that manages worktrees
+   * gives back the directories of finished work without anyone asking.
+   * A failed sweep is logged and retried on the next tick: the Tickets' work stays where it is either way.
+   */
+  private sweepWorktrees(): void {
+    const later = (wait: number) => {
+      this.sweepTimer = setTimeout(() => {
+        void this.host.worktrees.sweep().catch((error: unknown) => { this.host.context.logger.warn('nuclear-dev-agent could not sweep worktrees: %s', String(error)) })
+          .finally(() => { if (!this.host.closing()) later(SWEEP_MS) })
+      }, wait)
+      this.sweepTimer.unref?.()
+    }
+    later(SWEEP_FIRST_MS)
   }
   /**
    * Reconciles running and pending assignments across open tickets after a host restart: notifies Engine of interrupted

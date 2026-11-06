@@ -9,6 +9,7 @@ import type { SourceStatusView } from './views/sources.ts'
 import type { DecisionListView, SearchView, ThreadDetailView, ThreadListView } from './views/threads.ts'
 import type { TicketListView } from './views/tickets.ts'
 import type { NuclearView } from './views/nuclear.ts'
+import type { WorktreeRow, WorktreeSweep } from '../executor/worktrees.ts'
 
 export const TICKET_FILTERS = ['open', 'person', 'working', 'idle', 'ended'] as const
 export const THREAD_FILTERS = ['subscribed', 'evaluating', 'recent', 'all'] as const
@@ -38,6 +39,9 @@ export interface Api {
   'POST tickets/:id/retry': { response: { retried: true } }
   'POST tickets/:id/stop': { response: { stopped: true } }
   'POST executor/pause': { body: { paused: boolean }; response: { paused: boolean } }
+  'GET worktrees': { response: { repository: string; cleanup: 'off' | 'safe'; worktrees: WorktreeRow[]; lastSweep: WorktreeSweep | null } }
+  'POST worktrees/sweep': { response: { swept: WorktreeSweep | null } }
+  'POST worktrees/remove': { body: { target: string; force?: boolean }; response: { removed: boolean; reason?: string } }
   'PUT settings/:block': { body: { value: unknown; revision: number }; response: { revision: number; restarting: boolean } }
   'GET policy/history': { response: HistoryView }
   'POST policy-sync/:id': { response: { policy: unknown } }

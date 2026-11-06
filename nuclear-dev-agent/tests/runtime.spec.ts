@@ -1096,6 +1096,28 @@ it('runs the prepare command once for a new ticket, under the execution root wit
   expect(waitsForPerson(runtime.store.tickets.get(failed.ticket.id)!)).toBe(true)
 })
 
+it('creates a Ticket\'s directory as a worktree of the configured repository, and answers the worktree tool', async () => {
+  const executor = runtime.store.settings().executor
+  const save = (worktrees: Partial<typeof executor.worktrees>) => runtime.store.saveSettings({ ...runtime.store.settings(),
+    executor: { ...runtime.store.settings().executor, worktrees: { ...executor.worktrees, ...worktrees } } })
+  const gitRuns = () => subprocess.spawn.mock.calls.map(([spec]) => spec as { argv: string[]; cwd: string }).filter(spec => spec.argv[0] === 'git')
+  save({ repository: '/srv/widgets' })
+  const { ticket } = await acceptedTicket()
+  const directory = ticket.execution!.directory
+  expect(gitRuns().filter(spec => spec.argv[1] === 'worktree' && spec.argv[2] === 'add')).toEqual([
+    expect.objectContaining({ argv: ['git', 'worktree', 'add', directory, `agent/${ticket.execution!.name}`], cwd: '/srv/widgets' })])
+  expect(runtime.store.tickets.get(ticket.id)!.assignments.at(-1)!.state).toBe('running')
+  // The main Session reads the worktrees and sweeps them on a person's request.
+  expect(await runTool(runtime.masterId, 'orchestrator_worktrees', { operation: 'list' })).toEqual({ repository: '/srv/widgets', worktrees: [], last_sweep: null })
+  expect(await runTool(runtime.masterId, 'orchestrator_worktrees', { operation: 'sweep' })).toEqual({ swept: { at: expect.any(String), removed: [], kept: [], pruned: 0 } })
+  await expect(runTool(runtime.masterId, 'orchestrator_worktrees', { operation: 'remove' })).rejects.toThrow('needs its branch')
+  // Without a repository the prepare command stays the way Ticket directories are made, and the tool reports no repository.
+  save({ repository: '' })
+  const plain = await acceptedTicket(feishu('7', '@bot 再修一个回归'))
+  expect(gitRuns().filter(spec => spec.argv[2] === 'add' && spec.argv.includes(plain.ticket.execution!.directory))).toEqual([])
+  expect(await runTool(runtime.masterId, 'orchestrator_worktrees', { operation: 'list' })).toMatchObject({ repository: '' })
+})
+
 it('counts a ticket whose directory the host prepared before prepare commands existed as prepared', async () => {
   const { ticket, sessionId } = await acceptedTicket()
   await runTool(sessionId, 'orchestrator_report', { state: 'failed', summary: 'offline' })

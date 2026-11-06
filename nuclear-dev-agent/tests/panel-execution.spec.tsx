@@ -40,6 +40,28 @@ it('lists Tickets under Execution by who they wait on, with the Executor state a
   expect(server.settings).toMatchObject({ paused: true, executor: { maxWorkers: 4 } })
 })
 
+it('lists the repository\'s worktrees with the Tickets in them, sweeps on request, and removes one that is nobody\'s', async () => {
+  server.worktrees = { repository: '/srv/widgets', cleanup: 'safe', lastSweep: null, worktrees: [
+    { path: '/work/fix-copy-1', branch: 'agent/fix-copy-1', detached: false, dirty: 0, ahead: 0, behind: 0, merged: true,
+      ticket: { id: 't1', title: '修复回归', open: true } },
+    { path: '/work/old-one', branch: 'agent/old-one', detached: false, dirty: 2, ahead: 1, behind: 0, merged: false }] }
+  await mount()
+  await click(zh['tab.execution'])
+  const worktrees = all('.dt-section').find(section => section.textContent?.includes(zh.worktreesTitle))!
+  expect([...worktrees.querySelectorAll('tbody tr')].map(row => row.textContent)).toEqual([
+    `agent/fix-copy-1修复回归${zh.worktreeMerged}`,
+    `agent/old-one${zh.worktreeNoTicket}${zh.worktreeDirty.replace('{count}', '2')} · ${zh.worktreeAhead.replace('{count}', '1')}${zh.worktreeRemove}`])
+  // Only a worktree that is nobody's offers a removal, and the sweep reports what it did.
+  expect([...worktrees.querySelectorAll('tbody tr')].map(row => row.querySelector('button') !== null)).toEqual([false, true])
+  await click(zh.worktreeSweepNow)
+  await click(zh.confirm)
+  expect(server.requests.some(request => request.path === 'worktrees/sweep' && request.method === 'POST')).toBe(true)
+  expect(text()).toMatch(/上次清理：.+移除 0 个，保留 0 个。/)
+  await click(find(zh.worktreeRemove, '.dt-section button'))
+  expect(server.requests.find(request => request.path === 'worktrees/remove')).toMatchObject({ method: 'POST', body: { target: 'agent/old-one' } })
+  expect(server.worktrees.worktrees.map(row => row.branch)).toEqual(['agent/fix-copy-1'])
+})
+
 it('stops an open Ticket from its page after confirmation', async () => {
   await mount()
   await click('修复回归')
