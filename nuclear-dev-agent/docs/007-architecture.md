@@ -357,9 +357,11 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/views/settings.ts` | The settings page's view: each block with its revision, each Source's settings with its kind's form, and the execution environment |
 | `src/app/views/overview.ts` | The overview: Tickets that need a person, problems, the last day's flow and the Executor's load |
 | `src/executor/dsh.ts` | The DshExecutor, `WorkerSlots`, `ticketExecution`, `inputMessage` and `mandateInstructions` |
+| `src/executor/worktrees.ts` | `TicketWorktrees`: a Ticket's directory as a worktree of the configured repository, created on launch with its create hook, swept once the Ticket ended and its branch adds nothing to the base branch with its remove hook, and the `WorktreeRow` and `WorktreeSweep` the panel and the tool read |
 | `src/executor/background.ts` | A worker's background work in DeepSeek Harness, the shell jobs its Session owns (`ctx.jobs`) and its subagents (`ctx.subagents`): `runningJobs`, `untilQuiet`, `killJobs`, `collectJobs`, `stopSubagents`, `stopBackground`, `until`, and `cancelled`, the workers whose turn a stop of their subagents cancelled |
 | `src/infra/commands.ts` | `Commands`, the CLI transport: `run`; `api` and `pages`, limited to the configured repository and validated; `lark` as the bot; `git`. `CliError` carries the code a command's output reports, such as a GitHub HTTP status, and a command that prints nothing fails with how it ended, never with its arguments; `validItems` skips and counts the malformed items of a list |
 | `src/infra/environment.ts` | The agent's process environment: command shims, the git configuration and credential helper, `runAsWorker`, and the checks of the environment and of a Ticket's directory |
+| `src/infra/worktrees.ts` | `Worktrees`, the git worktree operations over one repository: `list`, `create` with reuse of a branch that exists, `state`, `addsNothing` (the checks that let a branch go), `remove`, `prune`; the path and branch templates `renderWorktree`, `worktreePath` and `within`; and `gitRun`, git through the DSH subprocess runtime |
 | `src/infra/paths.ts` | The package's root, where packaged files are |
 | `src/infra/text.ts` | Word counts and the chat message limit, `fill` and `sameName` |
 | `src/infra/health.ts` | The `HealthBoard`, every part's health entry, each claimed by its one writer |
@@ -409,6 +411,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 
 | Test | Covers |
 | --- | --- |
+| `tests/worktrees.spec.ts` | The worktree lifecycle against real git repositories: templates, the porcelain listing, creation from a base branch, reuse of a branch that exists, the checks that guard a removal, the sweep, the hooks and the recorded reasons |
 | `tests/core-engine.spec.ts` | Domain rules on in-memory repositories: receiving, Eval, fan-out, resume and stop, interrupted Assignments, the pause, Policy changes, reports and outcomes, attaching, replies, failed deliveries and dismissed problems |
 | `tests/stage.spec.ts` | The Ticket stages, row by row |
 | `tests/policy.spec.ts` | Source scope, the gate, the admission table, Mandate revalidation, the Policy version, settings migrations and assessment outcomes |
@@ -497,13 +500,14 @@ Nothing deletes old records yet, so these grow without bound: the `trigger`, `di
 
 ### Main Session tools
 
-The main Session has 14 application tools:
+The main Session has 15 application tools:
 
 | Purpose | Tools |
 | --- | --- |
 | Read and route | `orchestrator_read`, `orchestrator_route` |
 | Manage Tickets | `orchestrator_ticket_retry`, `orchestrator_ticket_request_status`, `orchestrator_ticket_note` |
 | Re-evaluate | `orchestrator_trigger_requeue` |
+| Worktrees | `orchestrator_worktrees` |
 | Assess proactive work | `orchestrator_eval`, `orchestrator_eval_read`, `orchestrator_eval_decide` |
 | Communicate and unsubscribe | `orchestrator_reply`, `orchestrator_thread_unsubscribe` |
 | Configure | `orchestrator_settings_save`, `orchestrator_policy_sync`, `orchestrator_prompts_save` |

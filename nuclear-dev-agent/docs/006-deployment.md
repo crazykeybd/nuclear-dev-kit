@@ -161,6 +161,8 @@ Setup must succeed before polling or work starts. Overview lists missing require
    ```
 
    List personal CLIs, such as one signed in to your own account, as blocked commands.
+
+   Two ways create that checkout. The prepare command above does the whole job, as earlier versions of this document described. Or set **Worktrees** to the clone's path, `/home/me/src/widgets`, and the Executor creates each Ticket's worktree itself, on the branch the template names, removes it once the Ticket ended and its branch adds nothing to the base branch, and runs the prepare command afterwards, where a `fetch` belongs. The worktree mode needs nothing else; document 009 Worktrees, written later in the series, describes it.
 4. **Prompts.** Set the team sections: the GitHub disclosure line, review bots, the commit author and the auto-merge condition.
 
 ### Management API
@@ -180,6 +182,9 @@ Agents may rely on these routes and fields. The other routes in `src/app/api.ts`
 | `GET sources` | Each Source's status: `state` (`missing`, `off`, `error`, `setup`, `starting`, `paused` or `ready`), the `health` of its parts, its setup `problem`, the last day's `stats`, the Triggers it `filtered` in that day, and the messages it `dropped` in that day, newest drop first, each with its `channel`, `preview`, `ticket` (`id` and `title`) when it was for one, its `thread` when the store has it, and `dropped.at` and `dropped.reason`, `channelGone` or `channelIgnored` |
 | `PUT settings/<block>` with `{"value": …, "revision": n}` | Saves one block: `saved`, the block's new `revision`, `policy_changed` and `restarting`. `value` is the whole block, as `GET settings` holds it; a missing key takes its default |
 | `POST executor/pause` with `{"paused": true}` or `false` | Pauses or resumes processing: `paused` |
+| `GET worktrees` | The worktree repository, its cleanup rule, every worktree with its branch, uncommitted paths, distance from the base branch, whether it is safe to remove and the Ticket in it, and the last sweep |
+| `POST worktrees/sweep` | Runs the cleanup sweep now: `swept`, or 400 when no repository is set or cleanup is off |
+| `POST worktrees/remove` with `{"target": "<branch or path>", "force": false}` | Removes one worktree, and its branch when that adds nothing to the base branch: `removed`, and `reason` when it stayed |
 | `POST setup/check` | Runs setup again by restarting nuclear-dev-agent: `restarting: true`. Refused when setup has nothing to fix |
 | `POST policy-sync/<source id>` | Syncs that Source's allowed list now: `policy`, the Source's part as saved |
 | `GET prompts`, `PUT prompts` with `{"config", "baseRevision"}` | Reads the prompt configuration: `current`, with its `revision` and `config`, `defaults`, `sections`, the team sections in the order Sessions read them, `skillName`, the pattern of a team skill's name, `builtin`, the names a team skill cannot take, and `skillPrefix`, which Sessions load a skill's name under. Or saves it: the new `revision` |
@@ -209,7 +214,7 @@ The blocks:
 - `source:github`, `source:feishu`: `{"enabled": true, "config": {…}}`. GitHub's config has `repository` and `cli`, and the switches `observeIssues`, `observePulls`, `observeComments` and `observeCi`, off by default, which receive every new Issue, new pull request and comment in the repository and the default branch's CI; Feishu's has `cli`, `chats` as `[{"chatId": "oc_…", "name": "…", "listen": "mentions"}]` (or `"all"`), `directMessages`, and `otherChats` as `"none"` or `"mentions"`.
 - `policy`: `{"rules": […], "sources": {"github": {"allowed": [{"id": "<login>"}], "bots": [{"id": "dependabot[bot]"}]}, "feishu": {"allowed": [{"id": "ou_…", "name": "…"}], "syncChat": "oc_…", "admission": {"oc_…": {"unlistedAddressed": "explicit"}}}}}`. `bots` lists the bots whose messages may become inferred candidates. An `admission` row is keyed by chat id, `other` or `direct` for Feishu, and by `issues`, `pulls`, `comments` or `ci` for GitHub; an unset cell takes its default (see [002 Authorization](002-authorization.md)).
 - `eval`: `mode`, `timeoutSeconds` and `model`.
-- `executor`: `model`, `maxWorkers`, `directory`, `prepare` and `blockedCommands`. The processing pause is a setting of its own, `paused`, which `POST executor/pause` sets.
+- `executor`: `model`, `maxWorkers`, `directory`, `prepare`, `worktrees` and `blockedCommands`. The processing pause is a setting of its own, `paused`, which `POST executor/pause` sets. `worktrees` holds `repository`, `path`, `branch`, `base`, `reuse`, `cleanup`, `deleteBranch` and `hooks` (`create`, `remove`); with `repository` empty the prepare command creates Ticket directories, and otherwise the Executor does, as document 009 Worktrees describes (it is written later in the series).
 
 Changing a repository or CLI runs the corresponding setup check first. A failed check returns 400 with details in `setup`. A successful account change, or any save while setup is pending, returns `restarting: true`. The API is temporarily unavailable while the application restarts.
 
@@ -264,6 +269,7 @@ Setup problems appear on the overview with a link to the fix, in the panel's lan
 | `@… cannot read …` or `@… cannot push to …` | Give the agent account write access to the repository |
 | `The GitHub Source names no repository.` | Set the repository, `owner/name`, on the GitHub card |
 | A Ticket fails with `The prepare command failed: …` | The output names the cause, such as a wrong clone path; fix the command, then retry the Ticket |
+| A Ticket fails with `The worktree could not be created: …` | The worktree repository setting names a path that is not a git repository with a commit, or git refused the branch or the path; the output names which, and the fix is in the Execution settings |
 | `git does not read the github.com credential configuration nuclear-dev-agent writes` | Install git 2.32 or later |
 | A Ticket fails with `The git configuration of the repository in … sets …` | Remove the named credential or `http.*.extraheader` settings from the clone's `.git/config` |
 | `… was not written by nuclear-dev-agent` | Move the named file out of `<stateDir>/worker-bin` or `<stateDir>/worker-gitconfig`, or choose another `stateDir` |

@@ -3,14 +3,44 @@ import { useRef, useState } from 'react'
 import { TICKET_FILTERS, type TicketFilter } from '../app/api.ts'
 import { LIMITS } from '../limits.ts'
 import { usePoll, type SettingsView, type SourceView, type StateView } from './api.ts'
-import { DisclosureRow, Icon, InfoTip, Input, Pill } from './controls.tsx'
+import { Button, DisclosureRow, Icon, InfoTip, Input, Pill, SegmentedControl, Switch } from './controls.tsx'
 import { SaveBar } from './draft.tsx'
 import { usePanel } from './provider.tsx'
 import { TicketLine } from './rows.tsx'
 import { ConfigHistory, Field, Fields, ModelField, numberOf, useBlockDraft, useSettings } from './settings-kit.tsx'
-import { localized } from './text.ts'
+import { localized, when } from './text.ts'
 import { ConfirmButton, Hint, LabelValue, LoadMore, LoadState, Section, StatusHead } from './widgets.tsx'
 
+/**
+ * The Ticket worktrees of the deployment, as `wt list` shows them: the branch, the Ticket that works in each, what stands in the way
+ * of a removal, and the sweep that cleans up after ended Tickets. A worktree of an open Ticket offers no removal.
+ */
+function Worktrees({ reload }: { reload: () => Promise<void> }) {
+  const { t, call } = usePanel()
+  const { data, error, reload: reloadWorktrees } = usePoll(() => call('GET worktrees'), [], 15_000)
+  const sweep = async () => { await call('POST worktrees/sweep'); await reloadWorktrees() }
+  const remove = async (target: string) => { await call('POST worktrees/remove', { body: { target } }); await reloadWorktrees(); await reload() }
+  const stateOf = (row: NonNullable<typeof data>['worktrees'][number]): string => [row.dirty > 0 ? t('worktreeDirty', { count: String(row.dirty) }) : '',
+    row.ahead > 0 ? t('worktreeAhead', { count: String(row.ahead) }) : '', row.behind > 0 ? t('worktreeBehind', { count: String(row.behind) }) : '',
+    row.merged ? t('worktreeMerged') : '', row.detached ? t('worktreeDetached') : ''].filter(Boolean).join(' · ') || t('worktreeClean')
+  return <Section title={t('worktreesTitle')} count={data?.worktrees.length} hint={t('worktreesListHint')}
+    action={data?.repository ? <ConfirmButton variant="outline" icon="refresh" label={t('worktreeSweepNow')}
+      title={t('worktreeSweepNow')} message={t('worktreeSweepConfirm')} onConfirm={sweep} /> : undefined}>
+    <LoadState error={error} loading={!data} />
+    {data && !data.repository && <Hint>{t('worktreeListUnset')}</Hint>}
+    {data?.repository && (data.worktrees.length ? <table className="dt-table">
+      <thead><tr><th>{t('worktreeBranch')}</th><th>{t('worktreeTicket')}</th><th>{t('worktreeState')}</th><th /></tr></thead>
+      <tbody>{data.worktrees.map(row => <tr key={row.path}>
+        <td className="dt-mono" title={row.path}>{row.branch ?? row.path}</td>
+        <td>{row.ticket ? row.ticket.title : <span className="dt-hint">{t('worktreeNoTicket')}</span>}</td>
+        <td>{stateOf(row)}</td>
+        <td>{!row.ticket?.open && <Button size="sm" variant="ghost" onClick={() => { void remove(row.branch ?? row.path) }}>{t('worktreeRemove')}</Button>}</td>
+      </tr>)}</tbody>
+    </table> : <Hint>{t('worktreesNone')}</Hint>)}
+    {data?.lastSweep && <Hint>{t('worktreeLastSweep', { at: when(data.lastSweep.at, t('lang')), removed: String(data.lastSweep.removed.length),
+      kept: String(data.lastSweep.kept.length) })}</Hint>}
+  </Section>
+}
 export function ExecutionStatus({ filter: current, state, reload }: {
   filter: TicketFilter; state: StateView; reload: () => Promise<void>
 }) {
@@ -42,6 +72,7 @@ export function ExecutionStatus({ filter: current, state, reload }: {
           true) }}>{t(`ticketFilter.${value}`)}</Pill>)}
     </div>
     {current === 'idle' && <Hint>{t('idleHint')}</Hint>}
+    <Worktrees reload={reload} />
     <LoadState error={error} loading={!data} />
     {data && (data.items.length ? <ul className="dt-list">{data.items.map(ticket => ticket.stage === 'person'
       ? <TicketLine key={ticket.id} ticket={ticket} question
@@ -71,6 +102,13 @@ function EnvironmentVariables({ groups, sources,
       </table>
     </div>
   </DisclosureRow>
+}
+/** One worktree setting that is switched on or off, with the hint that says what switching it changes. */
+function SwitchField({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (next: boolean) => void }) {
+  return <div className="dt-switch-row">
+    <div className="dt-field-head">{label}<InfoTip text={hint} /></div>
+    <Switch checked={checked} onChange={onChange} label={label} />
+  </div>
 }
 export function ExecutionSettings() {
   const { t } = usePanel()
@@ -114,6 +152,48 @@ export function ExecutionSettings() {
               onChange={event => edit({ prepare: event.target.value })} />
           </Field>
           <EnvironmentVariables groups={environment.variables} sources={sources} onPick={insert} />
+          <div className="dt-form">
+            <Section title={t('worktreesTitle')} hint={t('worktreesHint')}>
+              <Field label={t('worktreeRepository')} hint={t('worktreeRepositoryHint')} note={value.worktrees.repository ? undefined
+                : t('worktreeRepositoryEmpty')}>
+                <Input className="dt-mono" value={value.worktrees.repository} placeholder={t('worktreeRepositoryEmpty')}
+                  spellCheck={false} pattern="/.*" onChange={event => edit({ worktrees: { ...value.worktrees, repository: event.target.value } })} />
+              </Field>
+              <div className="dt-grid3">
+                <Field label={t('worktreePath')} hint={t('worktreePathHint')}>
+                  <Input className="dt-mono" value={value.worktrees.path} placeholder="{name}" spellCheck={false}
+                    onChange={event => edit({ worktrees: { ...value.worktrees, path: event.target.value } })} />
+                </Field>
+                <Field label={t('worktreeBranch')} hint={t('worktreeBranchHint')}>
+                  <Input className="dt-mono" value={value.worktrees.branch} placeholder="agent/{name}" spellCheck={false}
+                    onChange={event => edit({ worktrees: { ...value.worktrees, branch: event.target.value } })} />
+                </Field>
+                <Field label={t('worktreeBase')} hint={t('worktreeBaseHint')}>
+                  <Input className="dt-mono" value={value.worktrees.base} placeholder={t('worktreeBaseEmpty')} spellCheck={false}
+                    onChange={event => edit({ worktrees: { ...value.worktrees, base: event.target.value } })} />
+                </Field>
+              </div>
+              <Section title={t('worktreeCleanup')} hint={t('worktreeCleanupHint')}>
+                <SegmentedControl label={t('worktreeCleanup')} value={value.worktrees.cleanup}
+                  options={[{ value: 'off', label: t('worktreeCleanupOff') }, { value: 'safe', label: t('worktreeCleanupSafe') }]}
+                  onChange={cleanup => edit({ worktrees: { ...value.worktrees, cleanup: cleanup as 'off' | 'safe' } })} />
+              </Section>
+              <SwitchField label={t('worktreeDeleteBranch')} hint={t('worktreeDeleteBranchHint')} checked={value.worktrees.deleteBranch}
+                onChange={deleteBranch => edit({ worktrees: { ...value.worktrees, deleteBranch } })} />
+              <SwitchField label={t('worktreeReuse')} hint={t('worktreeReuseHint')} checked={value.worktrees.reuse}
+                onChange={reuse => edit({ worktrees: { ...value.worktrees, reuse } })} />
+              <Field label={t('worktreeCreateHook')} hint={t('worktreeCreateHookHint')}>
+                <textarea className="dt-textarea dt-mono" rows={2} maxLength={LIMITS.worktreeHook} spellCheck={false}
+                  value={value.worktrees.hooks.create}
+                  onChange={event => edit({ worktrees: { ...value.worktrees, hooks: { ...value.worktrees.hooks, create: event.target.value } } })} />
+              </Field>
+              <Field label={t('worktreeRemoveHook')} hint={t('worktreeRemoveHookHint')}>
+                <textarea className="dt-textarea dt-mono" rows={2} maxLength={LIMITS.worktreeHook} spellCheck={false}
+                  value={value.worktrees.hooks.remove}
+                  onChange={event => edit({ worktrees: { ...value.worktrees, hooks: { ...value.worktrees.hooks, remove: event.target.value } } })} />
+              </Field>
+            </Section>
+          </div>
           <Field label={t('blockedCommands')} hint={t('blockedCommandsHint')}>
             <Input className="dt-mono" value={value.blockedCommands} placeholder={t('blockedCommandsNone')} spellCheck={false}
               onChange={event => edit({ blockedCommands: event.target.value })} />

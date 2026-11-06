@@ -9,6 +9,7 @@ import { AssessmentSchema, EvalReadSchema, WorktreeNameSchema, type MasterAssess
 import { ticketCard } from '../cards.ts'
 import { PromptConfigSchema, savePrompts, type Prompts } from '../prompts.ts'
 import { readResource, type MainResourceHost, type ResourceHost } from '../resources.ts'
+import type { TicketWorktrees } from '../../executor/worktrees.ts'
 import type { Sessions } from '../sessions.ts'
 import type { Settings } from '../settings.ts'
 import type { Store } from '../store.ts'
@@ -26,6 +27,8 @@ export interface MainToolsHost {
   readonly settings: Pick<Settings, 'view' | 'block' | 'save' | 'pause' | 'sync'>
   readonly assessor: Pick<MasterAssessor, 'context' | 'read' | 'decide'>
   readonly resources: ResourceHost
+  /** The deployment's Ticket worktrees, which the main Session lists and cleans up on a person's request. */
+  readonly worktrees: Pick<TicketWorktrees, 'config' | 'list' | 'sweep' | 'lastSweep' | 'prune' | 'remove'>
   /** Schedules a pass to carry out work queued by an Engine command (such as an Eval or ticket resume). */
   requestPass(): void
   sendReplies(): Promise<void>
@@ -151,6 +154,38 @@ function routeTool(host: MainToolsHost): Tool {
     },
   })
 }
+/**
+ * `orchestrator_worktrees`: the Ticket worktrees of the deployment, and their cleanup. `list` answers where each worktree stands and
+ * which Ticket works in it; `sweep` removes those of ended Tickets whose work is in the base branch; `remove` one named worktree;
+ * `prune` the records of worktrees whose directories are gone. Removing a worktree of an open Ticket is refused.
+ */
+function worktreesTool(host: MainToolsHost): Tool {
+  return tool({
+    name: 'orchestrator_worktrees',
+    description: 'List the repository\'s worktrees, the Ticket that works in each and what keeps them from being removed, or clean up as a person asks: sweep the worktrees of ended Tickets whose branch adds nothing to the base branch, remove one worktree, or prune the records of ones whose directories are gone. A worktree of an open Ticket is never removed.',
+    schema: z.object({
+      operation: z.enum(['list', 'sweep', 'remove', 'prune']).describe('list: where the worktrees stand; sweep: remove those of ended Tickets; remove: one named worktree; prune: drop records of gone directories.'),
+      target: z.string().nullish().describe('remove: the worktree\'s branch, path, or its directory\'s name.'),
+      force: z.boolean().nullish().describe('remove: also discard uncommitted paths and an unmerged branch; name it in the answer when it did.'),
+    }).strict(),
+    execute: async ({ operation, target, force }) => {
+      if (operation === 'list') {
+        const { repository } = host.worktrees.config()
+        return { repository, worktrees: await host.worktrees.list(), last_sweep: host.worktrees.lastSweep() ?? null }
+      }
+      if (operation === 'sweep') {
+        const sweep = await host.worktrees.sweep()
+        return { swept: sweep ?? null, ...sweep ? {} : { reason: 'No worktree repository is set, or cleanup is off in the Execution settings' } }
+      }
+      if (operation === 'prune') return { pruned: await host.worktrees.prune() }
+      if (!target) throw new UserError('worktreeTarget')
+      const removal = await host.worktrees.remove(target, { force: force ?? false }).catch((error: unknown) => {
+        throw new UserError('worktreeNotRemoved', { reason: error instanceof Error ? error.message : String(error) })
+      })
+      return { removal }
+    },
+  })
+}
 /** Builds the main Session's tools; `agent` scopes prompt preview resources to that Session. */
 export function mainTools(host: MainToolsHost, agent: Agent): Tool[] {
   const resources: MainResourceHost = { ...host.resources, sessions: host.sessions, settings: host.settings }
@@ -158,6 +193,7 @@ export function mainTools(host: MainToolsHost, agent: Agent): Tool[] {
     readTool('Read one page of a resource the resource parameter lists, such as the ticket list or a ticket. Follow next_offset, and next_resource where a page names one.',
       false, (resource, offset, limit, signal) => readResource(resources, resource, offset, limit, undefined, signal)),
     routeTool(host),
+    worktreesTool(host),
     tool({
       name: 'orchestrator_ticket_retry',
       description: 'Start a new assignment on an explicit human request to retry a ticket whose worker reported failed or blocked, or whose input was not delivered; the stalled one ends.',

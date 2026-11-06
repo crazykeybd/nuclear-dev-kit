@@ -29,6 +29,7 @@ import { decisionList, search, threadDetail, threadList } from './views/threads.
 import { executorLoad, ticketDetail, ticketList } from './views/tickets.ts'
 import { nuclearView, overviewNuclear, ticketNuclearView } from './views/nuclear.ts'
 import type { Nuclear } from './nuclear.ts'
+import type { TicketWorktrees } from '../executor/worktrees.ts'
 
 export interface HttpHost {
   readonly store: Store
@@ -40,6 +41,8 @@ export interface HttpHost {
   readonly settings: Pick<Settings, 'view' | 'save' | 'pause' | 'sync' | 'refreshLabels'>
   readonly engine: EngineForPeople
   readonly executor: Pick<DshExecutor, 'activeCount'>
+  /** The deployment's Ticket worktrees, which the Execution page lists and sweeps. */
+  readonly worktrees: Pick<TicketWorktrees, 'config' | 'list' | 'lastSweep' | 'sweep' | 'remove'>
   readonly health: Record<string, Health>
   readonly machine: Machine
   /** The nuclear flow: which kit this installation runs, and what it says about each Ticket's directory. */
@@ -218,6 +221,18 @@ function routes(runtime: HttpHost): Routes {
     'POST tickets/:id/retry': ({ params }) => { const id = ticket(params.id); runtime.engine.retryTicket(id); return { retried: true } },
     'POST tickets/:id/stop': ({ params }) => { const id = ticket(params.id); runtime.engine.stopTicket(id); return { stopped: true } },
     'POST executor/pause': async ({ body }) => runtime.settings.pause(z.object({ paused: z.boolean() }).parse(await body()).paused, 'panel'),
+    'GET worktrees': async () => ({ repository: runtime.worktrees.config().repository, cleanup: runtime.worktrees.config().cleanup,
+      worktrees: await runtime.worktrees.list(), lastSweep: runtime.worktrees.lastSweep() ?? null }),
+    'POST worktrees/sweep': async () => {
+      const swept = await runtime.worktrees.sweep()
+      if (!swept) throw new RouteError(400, 'No worktree repository is set, or cleanup is off in the Execution settings')
+      return { swept }
+    },
+    'POST worktrees/remove': async ({ body }) => {
+      const request = z.object({ target: z.string().min(1), force: z.boolean().optional() }).parse(await body())
+      return runtime.worktrees.remove(request.target, { force: request.force ?? false }).then(removal => ({ removed: removal.removed,
+        ...removal.reason ? { reason: removal.reason } : {} }), error => ({ removed: false, reason: error instanceof Error ? error.message : String(error) }))
+    },
     'PUT settings/:block': async ({ params, body }) => {
       const block = SettingsBlockSchema.parse(params.block)
       const known = !block.startsWith('source:') || runtime.sources.instances().some(instance => `source:${instance.id}` === block)

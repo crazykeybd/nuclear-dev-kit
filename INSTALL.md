@@ -324,6 +324,11 @@ dsh nuclear-dev-agent                                # 启动；面板 http://12
 
 部署后仍需人来做的：面板 Sources 填目标仓库与 agent 账号的 `gh` 包装器，Policy 填允许名单，
 模型供应商未配置时补 `llm` 行。需要 Node.js 22.19+ 或 24+ 与 pnpm（`--skip-build` 可跳过构建）。
+面板「设置 → 执行 → 工作树」可以填上本机 clone 的绝对路径：之后每个 Ticket 的目录就是那个仓库的一张
+git worktree，工单结束、分支已并入起始分支且没有未提交内容时由 agent 自己收回，并在「执行」页列出与清理；
+留空则仍由 prepare 命令建目录。详见 [`docs/nuclear-dev-agent.md`](docs/nuclear-dev-agent.md) 与
+[`nuclear-dev-agent/docs/009-worktrees.md`](nuclear-dev-agent/docs/009-worktrees.md)。
+
 部署后的面板多一页「核能流程」：每个工单目录一块七阶段板，判定全部来自 `nuclearlib.py`，
 `nuclear.kitPath` 留空则这一页只说明如何配置。细节与备选写法（把 Skill 只装进某个 Ticket 的 worktree）
 见 [`docs/nuclear-dev-agent.md`](docs/nuclear-dev-agent.md)。
