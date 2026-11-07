@@ -39,7 +39,9 @@ interface Skill { name: string; description: string; content: string }
  * Raised once for the nuclear development flow: `prompts/nuclear.md` is a built-in section of both roles, since the stage
  * table, the gate command line and the rules no role may bend must reach every Session that can start or carry out work.
  */
-const BUDGET: Record<Role, number> = { orchestrator: 61_500, worker: 42_500 }
+/** The most characters of prompt and tools each role may carry; the chief agent's part (prompts/chief.md) raised the
+ * main Session's from 61,500, and a stage agent's own part is small enough for the worker's to stand unchanged. */
+const BUDGET: Record<Role, number> = { orchestrator: 64_000, worker: 42_500 }
 const PROMPTS = 'prompts/, skills/', TOOLS = 'src/app/tools/', SESSIONS = 'src/app/sessions.ts'
 const NOTICES = 'src/app/notices.ts', LINKS = 'src/app/links.ts', ASSESSMENT = 'src/app/assessment.ts'
 const EXECUTOR = 'src/executor/dsh.ts', ERRORS = 'src/core/errors.ts'

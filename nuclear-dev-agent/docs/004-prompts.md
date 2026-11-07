@@ -23,6 +23,8 @@ Overrides use these keys:
 | --- | --- |
 | Shared instructions and roles | `runtime/shared`, `runtime/orchestrator`, `runtime/worker` |
 | Working instructions | `runtime/subscriptions`, `runtime/replies`, `runtime/dispatch`, `runtime/work`, `runtime/nuclear`, `runtime/admission` |
+| The chief agent's part | `runtime/chief`, read by the main Session, which hands each Ticket to a stage agent |
+| The stage agents' parts | `runtime/stage/plan`, `runtime/stage/requirements`, `runtime/stage/design`, `runtime/stage/implementation`, `runtime/stage/test`, `runtime/stage/vv`, `runtime/stage/release`, one per stage agent, read by a worker whose Ticket works that stage |
 | Handoff instructions | `runtime/handoff/orchestrator`, `runtime/handoff/worker` |
 | Source skills | `skill/feishu`, `skill/github` |
 | Generated sections | `runtime/environment`, `runtime/policy`, `runtime/policy/none` |
@@ -31,6 +33,12 @@ Overrides use these keys:
 `$DSH_NUCLEAR_DEV_AGENT_NUCLEARCTL`, and the rules neither role may bend, such as that only `nuclearlib.py` judges a stage
 and that no Session writes an approval. A deployment without a kit keeps the section: it names the stages and says where
 the command line would be, so a request that speaks of a stage still reads as nuclear work.
+
+`runtime/chief` says which stage agent a request is for, that the chief carries out no stage itself, and that a person's
+approval is never its to give. A stage agent's part, `runtime/stage/<stage>`, says what its stage establishes, which
+artifact it writes, that its own gate is the last thing it runs, and which agent follows it. A worker reads the part of the
+stage its Ticket works and no other; a Ticket the chief agent named no stage for reads none of them. The panel's prompt
+preview offers each stage agent beside the two roles, so a team reads exactly what that agent is told.
 
 The generated sections are editable templates. They must retain these placeholders:
 

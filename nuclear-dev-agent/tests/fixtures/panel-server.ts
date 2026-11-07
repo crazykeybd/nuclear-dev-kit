@@ -8,6 +8,7 @@ import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-
 import type { Api, ApiResponse, RouteParams } from '../../src/app/api.ts'
 import { SKILL_NAME, SKILL_PREFIX, TEAM_SECTIONS, builtInBase, builtInPart, builtInParts, composePrompt, composeSkill, defaultPrompts,
   environmentSection, policySection, promptParts } from '../../src/app/prompts.ts'
+import { NUCLEAR_STAGES } from '../../src/nuclear/index.ts'
 import type { DroppedReply, HistoryView, NuclearProjectRow, NuclearStageRow, Problem, PromptsView, SetupView, SourceStatusRow, SourceView,
   StateView, ThreadPageView,
   ThreadRow, TicketPageView,
@@ -444,8 +445,12 @@ const ROUTES: { [K in keyof Api]: Route<K> } = {
       composeSkill(body, name)])
     // The generated parts from their templates, without variables or rules.
     const environment = environmentSection(body, []), policy = policySection(SettingsSchema.parse({ policy: { rules: [] } }), body)
-    return { parts: { orchestrator: promptParts(body, 'orchestrator', environment, policy), worker: promptParts(body, 'worker', environment) },
-      skills: Object.fromEntries(skills),
+    // As the host does: each stage agent reads the worker prompt of the stage its ticket works as.
+    const agents = Object.fromEntries(NUCLEAR_STAGES.map(stage => [`stage/${stage}`,
+      { text: composePrompt(body, 'worker', environment, undefined, stage), parts: promptParts(body, 'worker', environment, undefined, stage) }]))
+    return { parts: { orchestrator: promptParts(body, 'orchestrator', environment, policy), worker: promptParts(body, 'worker', environment),
+        ...Object.fromEntries(Object.entries(agents).map(([key, agent]) => [key, agent.parts])) },
+      agents, skills: Object.fromEntries(skills),
       orchestrator: composePrompt(body, 'orchestrator'), worker: composePrompt(body, 'worker'), scope: '' }
   } },
 }

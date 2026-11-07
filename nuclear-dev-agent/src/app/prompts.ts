@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { UserError, key } from '../core/index.ts'
 import { policyVersion, type Settings, type SettingsOrigin } from '../policy.ts'
 import { masterPrompt, workerPrompt, sharedPrompt, guides, mainAdmissionPolicy, handoffPolicy, teamDefaults, sourceSkills, cliNotes,
-  nuclearPrompt } from './context.ts'
+  nuclearPrompt, chiefPrompt, stagePrompts } from './context.ts'
+import { NUCLEAR_STAGES, STAGE_AGENTS, type NuclearStage } from '../nuclear/index.ts'
 import { environmentLines, type Variable } from './execution-environment.ts'
 import { promptsNotice } from './notices.ts'
 import type { Sessions } from './sessions.ts'
@@ -23,7 +24,10 @@ const SkillNameSchema = z.string().regex(SKILL_NAME).refine(name => !(Object.key
   'This name belongs to a built-in skill')
 /** The built-in parts a team may override, by key: both roles' parts, the Source skills, and the generated parts' templates. */
 const PART_KEYS = ['runtime/shared', 'runtime/orchestrator', 'runtime/worker', 'runtime/subscriptions', 'runtime/replies',
-  'runtime/dispatch', 'runtime/work', 'runtime/nuclear', 'runtime/admission', 'runtime/handoff/orchestrator', 'runtime/handoff/worker',
+  'runtime/dispatch', 'runtime/work', 'runtime/nuclear', 'runtime/chief',
+  'runtime/stage/plan', 'runtime/stage/requirements', 'runtime/stage/design', 'runtime/stage/implementation',
+  'runtime/stage/test', 'runtime/stage/vv', 'runtime/stage/release',
+  'runtime/admission', 'runtime/handoff/orchestrator', 'runtime/handoff/worker',
   'runtime/environment', 'runtime/policy', 'runtime/policy/none', 'skill/feishu', 'skill/github'] as const
 export type PartKey = typeof PART_KEYS[number]
 /** A team's text for a built-in part, and `base`, the key of the built-in text it was edited from. */
@@ -48,6 +52,8 @@ type Role = 'orchestrator' | 'worker'
 /** A built-in part a team may override: the roles that read it, its text, and the placeholders a template's override keeps. */
 interface BuiltInPart { roles: readonly Role[]; text: string; placeholders?: readonly string[] }
 const BOTH: readonly Role[] = ['orchestrator', 'worker'], MAIN: readonly Role[] = ['orchestrator'], WORKER: readonly Role[] = ['worker']
+/** One stage agent's prompt part: its heading, which names the agent, and what its stage establishes. */
+const stagePart = (stage: NuclearStage): string => `## stage agent · ${stage} · ${STAGE_AGENTS[stage].name.en}\n${stagePrompts[stage]}`
 let parts: Readonly<Record<PartKey, BuiltInPart>> | undefined
 /**
  * The built-in parts of both roles' prompts, the two Source skills, and the templates of the generated parts, whose data the
@@ -60,6 +66,12 @@ export const builtInParts = (): Readonly<Record<PartKey, BuiltInPart>> => parts 
   'runtime/replies': { roles: BOTH, text: `## replies\n${guides.replies}` },
   'runtime/dispatch': { roles: MAIN, text: `## dispatch\n${guides.dispatch}` }, 'runtime/work': { roles: WORKER, text: `## work\n${guides.work}` },
   'runtime/nuclear': { roles: BOTH, text: `## nuclear development flow\n${nuclearPrompt}` },
+  'runtime/chief': { roles: MAIN, text: `## chief agent\n${chiefPrompt}` },
+  'runtime/stage/plan': { roles: WORKER, text: stagePart('plan') }, 'runtime/stage/requirements': { roles: WORKER, text: stagePart('requirements') },
+  'runtime/stage/design': { roles: WORKER, text: stagePart('design') },
+  'runtime/stage/implementation': { roles: WORKER, text: stagePart('implementation') },
+  'runtime/stage/test': { roles: WORKER, text: stagePart('test') }, 'runtime/stage/vv': { roles: WORKER, text: stagePart('vv') },
+  'runtime/stage/release': { roles: WORKER, text: stagePart('release') },
   'runtime/admission': { roles: MAIN, text: mainAdmissionPolicy },
   'runtime/handoff/orchestrator': { roles: MAIN, text: handoffPolicy('orchestrator') },
   'runtime/handoff/worker': { roles: WORKER, text: handoffPolicy('worker') },
@@ -100,8 +112,11 @@ export function policySection(settings: Settings, config: PromptConfig = default
 /**
  * Assemble a role's system prompt sections in order from fixed templates, team sections, the generated execution environment
  * and, last, the main Session's generated Policy section, which nothing follows, and whose change leaves the rest unchanged.
+ * A worker's prompt holds the part of the stage agent it works as, and only that one; the main Session's holds the chief
+ * agent's part, which says which stage agent a request is for.
  */
-export function promptParts(config: PromptConfig, role: Role, environment?: string, policy?: { key: string; text: string }) {
+export function promptParts(config: PromptConfig, role: Role, environment?: string, policy?: { key: string; text: string },
+  stage?: NuclearStage) {
   // A built-in part names the key its text is overridden by, which for the handoff names the role.
   const fixed = (name: string, part = name) => ({ name, kind: 'fixed' as const, key: part, text: builtIn(config, part as PartKey) })
   const team = (name: TeamSection) => ({ name, kind: 'team' as const, heading: `## ${TEAM_HEADINGS[name]}`,
@@ -111,14 +126,17 @@ export function promptParts(config: PromptConfig, role: Role, environment?: stri
     ...TEAM_SECTIONS.map(team),
     ...['subscriptions', 'replies', role === 'orchestrator' ? 'dispatch' : 'work'].map(name => fixed(`runtime/${name}`)),
     fixed('runtime/nuclear'),
+    ...role === 'orchestrator' ? [fixed('runtime/chief')] : [],
+    ...role === 'worker' && stage ? [fixed(`stage ${stage}`, `runtime/stage/${stage}`)] : [],
     ...role === 'orchestrator' ? [fixed('runtime/admission')] : [],
     fixed('runtime/handoff', `runtime/handoff/${role}`),
     ...environment ? [{ name: 'runtime/environment', kind: 'generated' as const, key: 'runtime/environment', text: environment }] : [],
     ...role === 'orchestrator' && policy ? [{ name: 'runtime/policy', kind: 'generated' as const, ...policy }] : [],
   ].filter(part => part.text)
 }
-export function composePrompt(config: PromptConfig, role: Role, environment?: string, policy?: { key: string; text: string }): string {
-  return promptParts(config, role, environment, policy).map(part => part.text).join('\n\n')
+export function composePrompt(config: PromptConfig, role: Role, environment?: string, policy?: { key: string; text: string },
+  stage?: NuclearStage): string {
+  return promptParts(config, role, environment, policy, stage).map(part => part.text).join('\n\n')
 }
 export function composeSkill(config: PromptConfig, name: string): string {
   return name === 'feishu' || name === 'github' ? builtIn(config, `skill/${name}`) : config.skills[name] ?? ''
@@ -141,9 +159,13 @@ export class Prompts {
     private readonly feishu: () => boolean) {
     this.versions = new Versions(store, KV.prompts.revision, KV.prompts.version)
   }
-  /** A role's prompt; the main Session's Policy section follows the settings as they are now, at each model request. */
-  compose(config: PromptConfig, role: Role, variables = this.environment()): string {
-    return composePrompt(config, role, environmentSection(config, variables), role === 'orchestrator' ? policySection(this.store.settings(), config) : undefined)
+  /**
+   * A worker's prompt holds the stage agent its ticket works as; the main Session's holds the chief agent's part. The main
+   * Session's Policy section follows the settings as they are now, at each model request.
+   */
+  compose(config: PromptConfig, role: Role, variables = this.environment(), stage?: NuclearStage): string {
+    return composePrompt(config, role, environmentSection(config, variables),
+      role === 'orchestrator' ? policySection(this.store.settings(), config) : undefined, role === 'worker' ? stage : undefined)
   }
   /** Returns skills to register in every Session: built-in Source skills (`feishu` only when a Feishu bot is configured) followed by team skills. */
   skills(config: PromptConfig): [string, string][] {
@@ -198,8 +220,13 @@ export class Prompts {
   preview(value: unknown) {
     const config = this.validate(value)
     const environment = environmentSection(config, this.environment()), policy = policySection(this.store.settings(), config)
+    // Each stage agent's prompt, as it reads it while its ticket works that stage, under `stage/<stage>`.
+    const agents = Object.fromEntries(NUCLEAR_STAGES.map(stage => [`stage/${stage}`,
+      { text: composePrompt(config, 'worker', environment, undefined, stage), parts: promptParts(config, 'worker', environment, undefined, stage) }]))
     return { orchestrator: composePrompt(config, 'orchestrator', environment, policy), worker: composePrompt(config, 'worker', environment),
-      parts: { orchestrator: promptParts(config, 'orchestrator', environment, policy), worker: promptParts(config, 'worker', environment) },
+      agents,
+      parts: { orchestrator: promptParts(config, 'orchestrator', environment, policy), worker: promptParts(config, 'worker', environment),
+        ...Object.fromEntries(Object.entries(agents).map(([key, agent]) => [key, agent.parts])) },
       skills: Object.fromEntries(this.skills(config)), scope: 'Team sections, skills, and overrides of built-in parts, which follow their built-in text until overridden. Workers additionally inherit the host prompt and repository AGENTS.md. Prompt text changes what the agents are told, not what nuclear-dev-agent allows: tool permissions, the gate and account wrappers stay.' }
   }
   save(value: unknown, baseRevision: number, source: SettingsOrigin): PromptVersion {

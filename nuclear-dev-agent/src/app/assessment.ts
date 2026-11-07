@@ -13,6 +13,7 @@ import type { TriggerContext } from '../sources/kind.ts'
 import { relatedTickets } from './cards.ts'
 import { textPage } from './context.ts'
 import { AcknowledgementSchema } from './tools/tool.ts'
+import { NUCLEAR_STAGES } from '../nuclear/index.ts'
 import type { Effects } from './effects.ts'
 
 /** Schema for a short lowercase kebab-case English ticket worktree name (1–4 words, at most 32 characters). */
@@ -29,6 +30,7 @@ export const AssessmentSchema = z.object({
   scope: z.string().max(1500),
   intent_evidence: z.string().trim().min(1).max(700).nullish().describe('For acceptance: the quotes that establish the three facts.'),
   acknowledgement: AcknowledgementSchema.nullish().describe('For acceptance: one sentence in the source language, posted as a reply to the trigger; omit only when a matched rule asks for silence.'),
+  stage: z.enum(NUCLEAR_STAGES).nullish().describe('For acceptance: the stage agent the work actually is, by its stage id; omit only when the request spans the whole flow.'),
   reason: z.string().min(1).max(500),
 }).strict().refine(value => value.decision !== 'accept' || !directionAllowed(value.direction) || !value.rule_assessments.some(rule => rule.matched)
   || !!value.worktree_name, { message: 'Accepted work requires a short English worktree_name', path: ['worktree_name'] })

@@ -6,6 +6,7 @@ import { allowedSender, listedBot } from '../../policy.ts'
 import type { ChannelLink, Localized } from '../../sources/kind.ts'
 import type { SourceRegistry } from '../../sources/registry.ts'
 import { workerSessionId } from '../../executor/dsh.ts'
+import { stageAgent as stageAgentOf } from '../../nuclear/index.ts'
 import type { Store } from '../store.ts'
 import { attribute, markdown, plain, preview, readable } from './text.ts'
 
@@ -126,6 +127,8 @@ export function ticketSummary(ticket: Ticket) {
     // Every started Assignment of a Ticket runs in its one shared worker Session.
     deliveryError: attribute(ticket.delivery?.error), sessionId: ticket.assignments.some(item => item.startedAt)
       ? workerSessionId(ticket.id) : '',
+    // The stage agent the ticket works as, which the chief agent named: a ticket without one may carry out any stage itself.
+    ...stageAgentOf(ticket.execution?.stage) ? { agent: stageAgentOf(ticket.execution?.stage)! } : {},
     directory: attribute(ticket.execution?.directory), summary: latestReport(ticket)?.summary ?? '', createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt }
 }

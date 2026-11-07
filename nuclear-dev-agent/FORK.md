@@ -33,6 +33,10 @@
    两个变量，指到本机 kit 与门禁命令行。
 6. **部署配置**：`Config.nuclear`（`kitPath`、`python`、超时、刷新与工作区上限），
    由 `tools/deploy_nuclear_dev_agent.py` 写进 profile 的 `cordis.patch.yml`。
+7. **多智能体分工**（新增 `src/nuclear/agents.ts`、`prompts/chief.md`、`prompts/stage/*.md`）：
+   七个阶段各是一个阶段智能体，各自拥有产物、Skill 与门禁；主 Session 变成总控智能体，接单时
+   用 `orchestrator_route` 的 `stage` 字段指定工单归谁，门禁接受某阶段后宿主把工单交给下一个阶段
+   智能体。没有指定阶段的工单仍照上游那样由一个执行器走完全部阶段（`docs/010-stage-agents.md`）。
 
 上游文件仍按原样保留结构，改动尽量集中在新增模块与命名上，便于对照上游阅读差异。
 

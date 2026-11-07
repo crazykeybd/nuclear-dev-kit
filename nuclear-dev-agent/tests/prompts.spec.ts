@@ -7,7 +7,9 @@ import { Prompts, builtInBase, composePrompt, defaultPrompts, policySection, pro
 import { USER_ERRORS, UserError } from '../src/core/index.ts'
 import { KV } from '../src/kv.ts'
 import { SettingsSchema, policyVersion } from '../src/policy.ts'
-import { guides, handoffPolicy, mainAdmissionPolicy, masterPrompt, sharedPrompt, workerPrompt } from '../src/app/context.ts'
+import { chiefPrompt, guides, handoffPolicy, mainAdmissionPolicy, masterPrompt, sharedPrompt, stagePrompts, workerPrompt }
+  from '../src/app/context.ts'
+import { NUCLEAR_STAGES, STAGE_AGENTS } from '../src/nuclear/index.ts'
 import { promptFile } from '../src/app/skill-files.ts'
 import { packagePath } from '../src/infra/paths.ts'
 import type { Variable } from '../src/app/execution-environment.ts'
@@ -48,13 +50,32 @@ it('assembles every role from fixed sections around the team sections, whatever 
   const config = { communication: 'Say little.', scope: '', delivery: 'Attach screenshots.', skills: {} }
   for (const role of ['orchestrator', 'worker'] as const) {
     const names = promptParts(config, role, 'env').map(part => part.name)
-    expect(names).toEqual(['runtime/shared', `runtime/${role}`, 'communication', 'delivery', 'runtime/subscriptions', 'runtime/replies', role === 'orchestrator' ? 'runtime/dispatch' : 'runtime/work', 'runtime/nuclear', ...role === 'orchestrator' ? ['runtime/admission'] : [], 'runtime/handoff', 'runtime/environment'])
+    expect(names).toEqual(['runtime/shared', `runtime/${role}`, 'communication', 'delivery', 'runtime/subscriptions', 'runtime/replies', role === 'orchestrator' ? 'runtime/dispatch' : 'runtime/work', 'runtime/nuclear', ...role === 'orchestrator' ? ['runtime/chief', 'runtime/admission'] : [], 'runtime/handoff', 'runtime/environment'])
     const prompt = composePrompt(config, role)
     for (const fixed of [sharedPrompt, role === 'orchestrator' ? masterPrompt : workerPrompt, guides.subscriptions!, guides.replies!, handoffPolicy(role)]) expect(prompt).toContain(fixed)
     expect(prompt.endsWith(handoffPolicy(role))).toBe(true)
   }
   expect(composePrompt(config, 'orchestrator')).toContain(mainAdmissionPolicy)
   expect(composePrompt(config, 'worker')).not.toContain(mainAdmissionPolicy)
+})
+
+it('gives a worker the part of the stage agent its ticket works as, and the main Session the chief agent\'s part', () => {
+  const config = defaultPrompts()
+  for (const stage of NUCLEAR_STAGES) {
+    const whole = [...promptParts(config, 'worker', 'env', undefined, stage)].map(part => part.name)
+    // A stage agent reads its own part, right after the flow both roles read, and the parts of no other stage agent.
+    expect(whole).toEqual(['runtime/shared', 'runtime/worker', 'communication', 'scope', 'delivery', 'runtime/subscriptions', 'runtime/replies',
+      'runtime/work', 'runtime/nuclear', `stage ${stage}`, 'runtime/handoff', 'runtime/environment'])
+    const prompt = composePrompt(config, 'worker', 'env', undefined, stage)
+    expect(prompt).toContain(`## stage agent · ${stage} · ${STAGE_AGENTS[stage].name.en}`)
+    expect(prompt).toContain(stagePrompts[stage])
+    for (const other of NUCLEAR_STAGES.filter(item => item !== stage)) expect(prompt).not.toContain(stagePrompts[other])
+  }
+  // A ticket that names no stage reads no stage agent's part, and the main Session never reads one.
+  expect(promptParts(config, 'worker', 'env').map(part => part.name)).not.toContain('stage plan')
+  expect(composePrompt(config, 'worker', 'env', undefined, undefined)).not.toContain('## stage agent')
+  expect(composePrompt(config, 'orchestrator', 'env', undefined, undefined)).toContain(`## chief agent\n${chiefPrompt}`)
+  expect(composePrompt(config, 'worker', 'env', undefined, 'plan' as const)).not.toContain('## chief agent')
 })
 
 it('reads a prompt file whatever its line ends and blank lines, and names a missing or empty one', () => {

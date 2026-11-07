@@ -2,6 +2,7 @@
 import { UserError } from './errors.ts'
 import { isoTime, liveTicket } from './model.ts'
 import type { ChannelRef, Decision, PolicyEffect, ThreadRef, Ticket, Trigger } from './model.ts'
+import { isNuclearStage } from '../nuclear/agents.ts'
 import type { Candidate, Repositories } from './ports.ts'
 import type { EngineOptions } from './part.ts'
 import { Assignments, type WorkerReport } from './assignments.ts'
@@ -220,6 +221,15 @@ export class Engine {
    */
   note(ticketId: string, text: string): Ticket { return this.repo.atomic(() => this.tickets.note(ticketId, text)) }
   /**
+   * The chief agent dispatches an open ticket to the stage agent of `stage`, whose work the ticket's next Assignment
+   * carries out: see `Tickets.dispatch`.
+   * @throws UserError when the ticket is unknown or has ended, or when `stage` is not a stage of the kit.
+   */
+  dispatchStage(ticketId: string, stage: string): Ticket {
+    if (!isNuclearStage(stage)) throw new UserError('unknownStage', { stage })
+    return this.repo.atomic(() => this.tickets.dispatch(ticketId, stage))
+  }
+  /**
    * An Executor's hand-back of a message that reached its ticket but asks for more than it: see `Evals.handback`.
    * @returns whether it was queued for Eval: false while another ticket still decides it, and for one this ticket did not decide (see `Evals.handback`).
    * @throws UserError when the ticket or trigger is unknown, the trigger did not reach the ticket, or the ticket already handed it back.
@@ -237,6 +247,15 @@ export class Engine {
    * answer, or a question or answer that names a message that is not a person's or did not reach the ticket.
    */
   report(ticketId: string, report: WorkerReport): Ticket { return this.repo.atomic(() => this.assignments.report(ticketId, report)) }
+  /**
+   * The kit accepted the stage this ticket works as: hand the ticket to the next stage agent (see `Tickets.stageAccepted`),
+   * which continues in the same worker Session under its own prompt.
+   * @throws UserError when the ticket is unknown or has ended, works another stage, or `stage` is the last one.
+   */
+  stageAccepted(ticketId: string, stage: string, summary: string): Ticket {
+    if (!isNuclearStage(stage)) throw new UserError('unknownStage', { stage })
+    return this.repo.atomic(() => this.tickets.stageAccepted(ticketId, stage, summary))
+  }
   /**
    * Handles an assignment that was running when the host stopped: restarts it with a recovery note unless its latest report is
    * `waiting`, `ready`, `blocked`, or `failed` and no Input reached its worker after that report, in which case it keeps its
@@ -260,11 +279,12 @@ export class Engine {
 /** What Sources ask and tell the Engine. */
 export type EngineForSources = Pick<Engine, 'receive' | 'bindThread' | 'threadClosed'>
 /** What the main Session asks of the Engine. */
-export type EngineForMainSession = Pick<Engine, 'candidate' | 'candidateDelivered' | 'decide' | 'attach' | 'reply' | 'requestStatus' | 'note'>
+export type EngineForMainSession = Pick<Engine, 'candidate' | 'candidateDelivered' | 'decide' | 'attach' | 'reply' | 'requestStatus' | 'note'
+  | 'dispatchStage'>
 /** What people ask of the Engine, through the panel or the main Session. */
 export type EngineForPeople = Pick<Engine, 'stopTicket' | 'retryTicket' | 'reevaluate' | 'unsubscribe' | 'dismiss'>
 /** What Settings tells the Engine. */
 export type EngineForSettings = Pick<Engine, 'policyChanged'>
 /** What the Executor tells the Engine, and what its workers ask of it. */
 export type EngineForExecutor = Pick<Engine, 'assignmentStarted' | 'inputsDelivered' | 'inputsRead' | 'turnEnded' | 'deliveryFailed'
-  | 'assignmentInterrupted' | 'report' | 'markUnrelated' | 'handback' | 'followForContext' | 'reply'>
+  | 'assignmentInterrupted' | 'report' | 'markUnrelated' | 'handback' | 'followForContext' | 'reply' | 'stageAccepted'>

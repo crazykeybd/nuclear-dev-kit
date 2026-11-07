@@ -178,8 +178,9 @@ it('leaves Feishu out of a GitHub-only deployment', async () => {
   at({ page: 'settings', query: { group: 'prompts' } })
   await mount()
   await click(tab(zh.promptViewFull))
+  // The two roles, then each stage agent the chief agent hands the work to, then the Sources' skills.
   expect([...field<HTMLSelectElement>(zh.promptPreviewTarget).options].map(option => option.textContent)).toEqual(['主 Session',
-    '执行器 Session', 'nuclear-dev-agent-github'])
+    '执行器 Session', '软件策划', '需求分析', '软件设计', '编码实现', '软件测试', '独立 V&V', '软件发布', 'nuclear-dev-agent-github'])
 })
 
 it('shows the Sources waiting for the deployment check, and the problem on the Source that fixes it, with its link', async () => {

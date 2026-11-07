@@ -135,6 +135,11 @@ python3 tools/deploy_nuclear_dev_agent.py --yes   # 执行：构建 agent、装 
 `nuclear-plan` → … → `nuclear-release` 干活。它以 `superagent` 原型为骨架改造而来，来源与逐项改动见
 [`nuclear-dev-agent/FORK.md`](nuclear-dev-agent/FORK.md)。
 
+分工：一个**总控智能体**（主 Session）与七个**阶段智能体**。总控只决定「这个请求是哪个阶段」并把工单交给
+该阶段的智能体；七个阶段智能体（策划、需求、设计、实现、测试、独立 V&V、发布）各拥有一个阶段、一份产物、
+一个 Skill 和它的门禁。一个工单一次由一个阶段智能体做，门禁接受该阶段后由宿主交给下一个；产物没过门禁就不
+推进，签名仍然只能由人签。设计与边界见 [nuclear-dev-agent/docs/010-stage-agents.md](nuclear-dev-agent/docs/010-stage-agents.md)。
+
 ```bash
 python3 tools/deploy_nuclear_dev_agent.py          # 预览：构建 agent、装 Skill、建 profile、写配置
 python3 tools/deploy_nuclear_dev_agent.py --yes    # 一条命令部署完
@@ -153,6 +158,8 @@ Skill 已装齐就跳过，配置行已在位就不重写。
 | `src/nuclear/` | 七阶段表，以及 `nuclearctl.py` 的桥接：`status` 读每个阶段，`gate <阶段>` 读当前阶段的递归门禁；门禁消息逐字照抄 |
 | `src/app/nuclear.ts` | 按工单目录缓存扫描、解释器探测，向面板与概览提供阶段板 |
 | `prompts/nuclear.md` | 两个角色的内置段落 `runtime/nuclear`：阶段、命令、以及「批准只能由人签、门禁失败即停」 |
+| `src/nuclear/agents.ts` | 总控智能体与七个阶段智能体的表：名字、Skill、产物与一句话职责 |
+| `prompts/chief.md` / `prompts/stage/<阶段>.md` | 总控的派活规则（`runtime/chief`），以及每个阶段智能体自己那一段（`runtime/stage/<阶段>`）；团队可在面板改写 |
 | 面板「核能流程」 | 每个工作区一块七阶段板；工单页带本工单的阶段段；概览列出被门禁停住的阶段 |
 | `DSH_NUCLEAR_DEV_AGENT_KIT` / `..._NUCLEARCTL` | 执行环境变量：本机 kit 目录与门禁命令行，主 Session 与执行器都能直接调用 |
 

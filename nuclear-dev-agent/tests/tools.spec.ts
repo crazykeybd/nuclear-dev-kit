@@ -122,7 +122,9 @@ it('answers every routing tool in one shape: the decision it recorded, why, and 
   expect(await route({ kind: 'ignore', trigger_id: chatter.id, reason: 'thanks' })).toEqual({ trigger_id: chatter.id, kind: 'ignore', decision: 'ignore',
     reason: 'thanks' })
   // A stop needs the person's stop message, which the gate judges; the ticket keeps the reason given.
-  await expect(run('orchestrator_route', { decisions: [{ kind: 'stop', ticket_id: ticket.id, reason: 'Not needed after all' }] })).rejects.toThrow()
+  // An item that lacks the stop message is refused alone, as every item is answered on its own.
+  expect(await run('orchestrator_route', { decisions: [{ kind: 'stop', ticket_id: ticket.id, reason: 'Not needed after all' }] }))
+    .toEqual({ results: [{ kind: 'stop', refused: 'stop needs trigger_id' }] })
   expect(h.runtime.store.tickets.get(ticket.id)!.ended).toBeUndefined()
   const request = feishu('5', '@bot 不用修了')
   h.runtime.receive(request); await h.runtime.idle()

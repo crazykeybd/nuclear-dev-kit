@@ -40,9 +40,12 @@ export interface Candidate {
 export type AssessmentOutcome =
   | { kind: 'ignore'; reason: string | Reason; audit?: Record<string, unknown> }
   | { kind: 'unavailable'; reason: string | Reason; audit?: Record<string, unknown> }
-  /** An accept: `rules` the assessment matched, `name` the ticket's requested short name, and `note` a routing note for its worker. */
+  /**
+   * An accept: `rules` the assessment matched, `name` the ticket's requested short name, `note` a routing note for its worker,
+   * and `stage` the stage agent the chief agent names for the ticket's work; a stage the kit does not have refuses the accept.
+   */
   | { kind: 'accept'; title: string; scope: string; reason: string | Reason; acknowledgement?: string; rules?: string[]; audit?: Record<string, unknown>;
-    name?: string; note?: string }
+    name?: string; note?: string; stage?: string }
   | { kind: 'stop'; ticketId: string; reason: string | Reason; audit?: Record<string, unknown> }
 
 /** Semantic judgement. `request` queues the assessment, idempotently per `evalId`; the outcome returns through `Engine.decide`. */
@@ -92,6 +95,8 @@ export interface DomainEvents {
   'ticket.ended': { ticketId: string; by: TicketEndBy; outcome: TicketOutcome; reason?: string }
   'assignment.started': { ticketId: string; assignmentId: string }
   'assignment.ended': { ticketId: string; assignmentId: string; reason: string }
+  /** The kit accepted `stage`, and the ticket passed to the stage agent of `next`, or to none when it was the last stage. */
+  'stage.accepted': { ticketId: string; stage: string; next?: string }
   'thread.subscribed': { threadKey: string; ticketId: string }
   /** A person dropped every ticket's Subscription, or a ticket's Executor its own, for `reason`. */
   'thread.unsubscribed': { threadKey: string; ticketId: string; by: 'person' | 'executor'; reason?: string }

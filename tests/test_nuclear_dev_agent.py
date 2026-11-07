@@ -77,11 +77,13 @@ def make_tree(base: Path, commit: str | None = None) -> Path:
         "FORK.md": "# 来源\n\n| 上游基点提交 | `%s`（main） |\n" % commit,
         "src/index.ts": "export const name = 'nuclear-dev-agent'\n",
         "src/nuclear/index.ts": "export const nuclear = true\n",
+        "src/nuclear/agents.ts": "export const agents = true\n",
         "src/nuclear/scan.ts": "export const scan = true\n",
         "src/app/nuclear.ts": "export const snapshot = true\n",
         "src/app/views/nuclear.ts": "export const view = true\n",
         "src/client/nuclear.tsx": "export const panel = true\n",
         "prompts/nuclear.md": "七阶段门禁的硬约束。\n",
+        "prompts/chief.md": "总控智能体派活。\n",
     }
     for relative, text in files.items():
         path = base / relative
