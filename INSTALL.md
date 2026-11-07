@@ -19,20 +19,23 @@ nuclear-dev-kit/
   package.json                   DeepSeek Harness bundle 清单
   cordis.patch.yml               DeepSeek Harness 插件补丁配置
   nuclear-dev-agent/                    本仓库主体：核能软件开发智能体（上游来源与改动见 FORK.md）
+  CONTRIBUTING.md               贡献流程与三条不可谈判的约束
+  CHANGELOG.md                  使用者能感知的变化
   docs/nuclear-dev-agent.md             在 nuclear-dev-agent 中跑核能流程的部署说明
+  docs/raven-alignment.md               参考 Raven 的取舍：采纳与拒绝及理由
   reasonix-plugin.json           Reasonix 插件清单
   .claude-plugin/                Claude Code 插件清单
   .codex-plugin/                 Codex 插件清单
   skills/
     nuclear-dev/                 总入口 + 冻结门禁 + MCP/A2A 适配层
-      references/                workflow / artifact-schema / mcp / a2a / threat-model
+      references/                workflow / artifact-schema / mcp / a2a / threat-model / tracing
       scripts/
         nuclearlib.py            唯一门禁实现（不要修改）
-        nuclearctl.py            门禁 CLI
+        nuclearctl.py            门禁 CLI（含 doctor 与 trace 子命令）
         nuclearmcp.py            MCP stdio 服务端
         nucleara2a.py            A2A 客户端与服务端
         nuclearaudit.py          审计链查看与校验
-        nuclearproto/            协议适配层
+        nuclearproto/            协议适配层（含 trace.py：门禁运行轨迹）
     nuclear-setup/               初始化与底层安装器
     nuclear-install/             便捷安装入口 + MCP 注册片段生成
     nuclear-plan/                阶段 1 软件策划
@@ -42,7 +45,7 @@ nuclear-dev-kit/
     nuclear-test/                阶段 5 软件测试
     nuclear-vv/                  阶段 6 独立 V&V
     nuclear-release/             阶段 7 软件发布
-  tests/                         回归测试（211 项）
+  tests/                         回归测试（340 项）
   tools/build_dist.py            可复现打包
 ```
 
@@ -356,6 +359,7 @@ python3 <KIT>/skills/nuclear-dev/scripts/nuclearctl.py \
   evidence/index.json   证据索引
   approvals/            人工批准（本工具永不写入）
   manifests/            发布清单
+  traces/               门禁运行轨迹（只在 gate --trace 或 NUCLEAR_DEV_TRACE=1 时出现）
 ```
 
 **只建结构，不建阶段产物。** 已初始化过的项目不要重复 `init`，用 `status` / `validate` 检查即可。
@@ -379,6 +383,22 @@ python3 <KIT>/skills/nuclear-dev/scripts/nuclearctl.py --root . gate plan --json
 ```
 
 全新项目这里应当**失败并返回 `1`**——这是正确行为：`plan` 阶段尚无产物。它同时证明门禁在工作。
+
+```bash
+python3 <KIT>/skills/nuclear-dev/scripts/nuclearctl.py --root . doctor --json
+```
+
+`doctor` 一次报出环境、结构、阶段进展、轨迹链与审计链。刚初始化的项目应当是 `ok: true`：没有阶段产物
+不算故障，未开始的阶段只是进展事实。
+
+```bash
+python3 <KIT>/skills/nuclear-dev/scripts/nuclearctl.py --root . gate plan --trace --json
+python3 <KIT>/skills/nuclear-dev/scripts/nuclearctl.py --root . trace verify --json
+```
+
+`--trace` 把这次判定的结论、内核原话、当时的产物摘要与运行环境记成 `.nuclear-dev/traces/<trace_id>.json`；
+`trace verify` 校验轨迹链。轨迹是线索不是证据，写失败不会改变门禁结论与退出码。标准见
+`<KIT>/skills/nuclear-dev/references/tracing.md`。
 
 ### 6.2 宿主内验证
 

@@ -42,9 +42,14 @@ metadata:
 python3 "$SKILL_DIR/scripts/nuclearctl.py" --root <项目目录> status --json
 python3 "$SKILL_DIR/scripts/nuclearctl.py" --root <项目目录> gate <阶段> --json
 python3 "$SKILL_DIR/scripts/nuclearctl.py" --root <项目目录> validate --json
+python3 "$SKILL_DIR/scripts/nuclearctl.py" --root <项目目录> doctor --json
 ```
 
 `gate` 默认递归检查前置阶段；仅在诊断当前阶段自身问题时使用 `--no-dependencies`。`status` 不递归。失败时保留非零退出码的含义：门禁失败为 `1`，参数或工具错误为 `2`。
+
+`gate <阶段> --trace` 会把这次判定记成运行轨迹（span 树、内核原话、当时的产物与批准摘要、内核版本与 `rules_sha256`），
+用 `trace list|show|verify` 查看与校验。轨迹是线索不是证据：它不参与判定，写失败也不改变门禁结论。
+工作区出问题且不确定从哪查起时，先跑 `doctor`——它一次报出环境、结构、阶段进展、轨迹链与审计链。
 
 ## MCP 面（宿主支持时优先）
 

@@ -208,13 +208,39 @@ python3 "$A" --project /path/to/vv-project serve \
 python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> status --json
 python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> gate <阶段> --json
 python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> validate --json
+python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> doctor --json
+python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> trace list --json
 ```
 
 - `status` 只检查各阶段当前产物，不递归检查依赖，始终返回 `0`。
 - `gate` 默认递归检查前置阶段；门禁失败返回 `1`，参数或工具错误返回 `2`。
 - `validate` 校验已存在产物、证据哈希、追溯和已登记批准。
+- `doctor` 一次体检环境、结构、阶段进展、轨迹链与审计链；只读，`ok` 表示"工作区完好"，不是"七阶段全过"。
 - 证据 ID 只能从 CLI JSON 的 `evidence.id` 获取；同一路径不能重复登记。
 - 不存在 `approve` 子命令。批准文件必须由具备权限的真实人员独立创建、审查和签署。
+
+## 运行轨迹与体检
+
+门禁是"当时说了算"的：跑一次 `gate`，通过或不通过，输出随即消失。审计要问的往往是另一件事——**当时那次判定
+看到的是哪些产物、内核原话是什么、换台机器重跑还算不算**。加 `--trace` 就有了答案：
+
+```bash
+# 跑一次门禁，并把这次判定记成一条可校验的轨迹
+python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> gate design --trace --json
+
+# 查看、校验（产物事后变了只报"偏离"，不算篡改；链被改过才校验失败）
+python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> trace list --limit 20 --json
+python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> trace show <trace_id> --json
+python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> trace verify --json
+```
+
+轨迹落在 `.nuclear-dev/traces/<trace_id>.json`，记 span 树、内核原话、当时的产物与批准摘要，以及内核版本、
+`rules_sha256`、Python 与平台。默认关闭，`NUCLEAR_DEV_TRACE=1` 可默认打开。
+
+三条硬保证：**关掉即空操作**、**写失败不改变门禁结论与退出码**、**轨迹不参与判定**。它是线索，不是证据；
+批准仍只能由人签。标准与字段契约见
+[skills/nuclear-dev/references/tracing.md](skills/nuclear-dev/references/tracing.md)；为什么这样借鉴上游见
+[docs/raven-alignment.md](docs/raven-alignment.md)。
 
 ## 安装目标
 
@@ -235,6 +261,8 @@ python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目>
 nuclear-dev-kit/
   README.md
   INSTALL.md
+  CONTRIBUTING.md            # 贡献流程与三条不可谈判的约束
+  CHANGELOG.md               # 使用者能感知的变化
   package.json               # DSH bundle 声明：dsh.bundle.patch → cordis.patch.yml
   cordis.patch.yml           # kit 的 MCP 桥接层（默认关闭；部署脚本会写入带绝对路径的一行）
   catalog.json               # 由 tools/gen_catalog.py 生成，勿手改
@@ -246,14 +274,14 @@ nuclear-dev-kit/
     plugin.json
   skills/
     nuclear-dev/             # 总入口、共享 Schema、冻结内核、MCP/A2A 适配层
-      references/            # workflow / artifact-schema / mcp / a2a / threat-model
+      references/            # workflow / artifact-schema / mcp / a2a / threat-model / tracing
       scripts/
         nuclearlib.py        # 唯一门禁实现
-        nuclearctl.py        # 门禁 CLI
+        nuclearctl.py        # 门禁 CLI（含 doctor 与 trace 子命令）
         nuclearmcp.py        # MCP stdio 服务端
         nucleara2a.py        # A2A 客户端与服务端
         nuclearaudit.py      # 审计链查看与校验
-        nuclearproto/        # 协议适配层
+        nuclearproto/        # 协议适配层（含 trace.py：门禁运行轨迹）
     nuclear-setup/           # 初始化与底层安装器
     nuclear-install/         # 便捷安装入口 + MCP 注册片段生成
     nuclear-plan/ ... nuclear-release/
@@ -275,6 +303,7 @@ nuclear-dev-kit/
     prompts/nuclear.md               # 内置段落 runtime/nuclear
   docs/
     nuclear-dev-agent.md             # 部署、配置与限制说明
+    raven-alignment.md               # 参考 Raven 的取舍：采纳了什么、拒绝了什么、为什么
 ```
 
 共享契约只在 `skills/nuclear-dev/references/` 维护。各宿主必须调用同一套 `nuclearlib.py`，禁止复制或弱化门禁规则。

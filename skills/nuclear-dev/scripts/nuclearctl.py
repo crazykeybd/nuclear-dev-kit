@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import sys
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from nuclearlib import (
     STAGE_ARTIFACTS,
@@ -16,11 +17,18 @@ from nuclearlib import (
     add_evidence,
     build_manifest,
     init_project,
+    relative_to_root,
     root_path,
     stage_gate,
     stage_status,
+    state_path,
+    utc_now,
     validate_project,
 )
+from nuclearproto import trace as tracing
+from nuclearproto.audit import verify as verify_audit
+
+MINIMUM_PYTHON = (3, 7, 3)
 
 
 class ChineseHelpFormatter(argparse.RawDescriptionHelpFormatter):
@@ -140,16 +148,43 @@ def command_validate(args: argparse.Namespace, root: Path) -> int:
     return 0 if not errors else 1
 
 
+def record_trace(root: Path, stage: str, include_dependencies: bool, errors: List[str]) -> Dict[str, Any]:
+    """写成运行轨迹；写失败只报告，门禁结论与退出码都不变。"""
+    try:
+        record = tracing.record_gate(
+            root,
+            stage,
+            include_dependencies=include_dependencies,
+            errors=errors,
+        )
+        if record is None:  # 未启用时不会有记录，走不到这里
+            return {"ok": False, "error": "轨迹未启用"}
+        path = tracing.traces_root(root) / (str(record["trace_id"]) + ".json")
+        return {
+            "ok": True,
+            "trace_id": record["trace_id"],
+            "sequence": record["sequence"],
+            "record_sha256": record["record_sha256"],
+            "path": relative_to_root(root, path),
+        }
+    except Exception as exc:  # 轨迹是线索不是证据：任何异常都不许改写判定
+        print("警告: 门禁判定不变，但运行轨迹未写成: %s" % exc, file=sys.stderr)
+        return {"ok": False, "error": str(exc)}
+
+
 def command_gate(args: argparse.Namespace, root: Path) -> int:
-    errors = stage_gate(root, args.stage, include_dependencies=not args.no_dependencies)
+    include_dependencies = not args.no_dependencies
+    errors = stage_gate(root, args.stage, include_dependencies=include_dependencies)
     payload = {
         "ok": not errors,
         "command": "gate",
         "root": str(root),
         "stage": args.stage,
-        "include_dependencies": not args.no_dependencies,
+        "include_dependencies": include_dependencies,
         "errors": errors,
     }
+    if tracing.enabled(bool(getattr(args, "trace", False))):
+        payload["trace"] = record_trace(root, args.stage, include_dependencies, errors)
     if args.json:
         emit_json(payload)
     elif errors:
@@ -159,6 +194,12 @@ def command_gate(args: argparse.Namespace, root: Path) -> int:
     else:
         print("%s门禁通过。" % STAGE_LABELS[args.stage])
         print("注意：门禁通过只表示已登记证据和人工批准满足规则，不是监管批准。")
+    trace = payload.get("trace")
+    if trace and not args.json:
+        if trace.get("ok"):
+            print("运行轨迹: %s（%s）" % (trace["path"], trace["trace_id"]))
+        else:
+            print("运行轨迹未写成: %s" % trace.get("error"))
     return 0 if not errors else 1
 
 
@@ -201,6 +242,145 @@ def command_manifest(args: argparse.Namespace, root: Path) -> int:
     return 0
 
 
+def _check(identifier: str, ok: bool, errors: Optional[List[str]] = None, **detail: Any) -> Dict[str, Any]:
+    return {"id": identifier, "ok": ok, "errors": list(errors or []), "detail": detail}
+
+
+def command_doctor(args: argparse.Namespace, root: Path) -> int:
+    """体检一处工作区：环境、结构、阶段、轨迹链与审计链，一次给结论。
+
+    只读。``ok`` 表示"这处工作区是完好的"——能不能通过某个阶段是另一回事，
+    阶段进展只作为事实列出，未开始的阶段不算故障。
+    """
+    checks = []
+    environment = tracing.environment()
+    supported = sys.version_info[:3] >= MINIMUM_PYTHON
+    checks.append(
+        _check(
+            "kit",
+            supported,
+            [] if supported else ["Python %s 低于要求的 %s" % (platform.python_version(), ".".join(str(item) for item in MINIMUM_PYTHON))],
+            **environment
+        )
+    )
+    state = state_path(root)
+    initialised = (state / "project.json").is_file()
+    if initialised:
+        workspace_errors = validate_project(root)
+        checks.append(_check("workspace", not workspace_errors, workspace_errors, state_dir=str(state)))
+        stages = stage_status(root)
+    else:
+        checks.append(_check("workspace", False, ["未初始化: 缺少 %s；先运行 nuclearctl.py init" % (state / "project.json")], state_dir=str(state)))
+        stages = {}
+    traces = tracing.verify(root)
+    checks.append(
+        _check(
+            "traces",
+            bool(traces["ok"]),
+            traces["errors"],
+            count=traces["traces"],
+            head=traces["head"],
+            drift=traces["drift"],
+            enabled=tracing.enabled(),
+        )
+    )
+    audit = verify_audit(state / "audit")
+    checks.append(_check("audit", bool(audit["ok"]), audit["errors"], records=audit.get("records", 0)))
+    ok = all(item["ok"] for item in checks)
+    attention = [stage for stage in STAGES if not stages.get(stage, {}).get("passed", False)]
+    payload = {
+        "ok": ok,
+        "command": "doctor",
+        "root": str(root),
+        "checked_at": utc_now(),
+        "environment": environment,
+        "checks": checks,
+        "stages": [{"stage": stage, "passed": bool(stages.get(stage, {}).get("passed")), "error_count": len(stages.get(stage, {}).get("errors", []))} for stage in STAGES],
+        "next": attention[0] if attention else None,
+    }
+    if args.json:
+        emit_json(payload)
+    else:
+        print("工作区: %s" % root)
+        for check in checks:
+            print("%-10s %s" % (check["id"], "正常" if check["ok"] else "异常"))
+            for error in check["errors"]:
+                print("  - %s" % error)
+            for drifted in check["detail"].get("drift") or []:
+                print(
+                    "  * 轨迹 %s 记录的 %s 已%s，请重新运行门禁"
+                    % (drifted["trace_id"], drifted["path"], "删除" if drifted["state"] == "removed" else "变更")
+                )
+        print("阶段进展: %d/%d 通过" % (sum(1 for item in payload["stages"] if item["passed"]), len(STAGES)))
+        if payload["next"]:
+            print("下一步: 阶段 %s 未通过；运行 gate %s 查看门禁原话。" % (payload["next"], payload["next"]))
+        print("体检只读：不写文件、不生成批准；体检通过不等于门禁通过或监管批准。")
+    return 0 if ok else 1
+
+
+def command_trace_list(args: argparse.Namespace, root: Path) -> int:
+    records = tracing.list_traces(root, limit=args.limit)
+    payload = {"ok": True, "command": "trace list", "root": str(root), "traces": records}
+    if args.json:
+        emit_json(payload)
+    elif not records:
+        print("还没有运行轨迹。用 gate <阶段> --trace 记录一次。")
+    else:
+        for item in records:
+            print(
+                "%s #%s %s %s %s（%s 项错误，%s 个 span）"
+                % (
+                    item["trace_id"],
+                    item["sequence"],
+                    item["kind"],
+                    item["stage"] or "-",
+                    "通过" if item["ok"] else "阻断",
+                    item["error_count"],
+                    item["spans"],
+                )
+            )
+    return 0
+
+
+def command_trace_show(args: argparse.Namespace, root: Path) -> int:
+    record = tracing.load_trace(root, args.trace_id)
+    payload = {"ok": True, "command": "trace show", "root": str(root), "trace": record}
+    if args.json:
+        emit_json(payload)
+    else:
+        verdict = record.get("verdict") or {}
+        print("轨迹: %s（序号 %s，%s）" % (record.get("trace_id"), record.get("sequence"), record.get("kind")))
+        print("阶段: %s" % (record.get("stage") or "-"))
+        print("时间: %s -> %s（%s ms）" % (record.get("started_at"), record.get("finished_at"), record.get("duration_ms")))
+        print("结论: %s" % ("通过" if verdict.get("ok") else "阻断"))
+        for error in verdict.get("errors") or []:
+            print("- %s" % error)
+        print("span:")
+        for span in record.get("spans") or []:
+            print("  %-10s %-24s %s" % (span.get("span_id"), span.get("name"), span.get("status")))
+    return 0
+
+
+def command_trace_verify(args: argparse.Namespace, root: Path) -> int:
+    report = tracing.verify(root)
+    payload = {"ok": bool(report["ok"]), "command": "trace verify", "root": str(root)}
+    payload.update(report)
+    if args.json:
+        emit_json(payload)
+    else:
+        print("轨迹数: %d" % report["traces"])
+        print("链头: %s" % report["head"])
+        if report["ok"]:
+            print("轨迹链校验通过。")
+        else:
+            print("轨迹链校验未通过，共 %d 项:" % len(report["errors"]))
+            for error in report["errors"]:
+                print("- %s" % error)
+        for drifted in report["drift"]:
+            print("偏离: %s 记录的 %s 已%s" % (drifted["trace_id"], drifted["path"], "删除" if drifted["state"] == "removed" else "变更"))
+    return 0 if report["ok"] else 1
+
+
 def build_parser() -> ChineseArgumentParser:
     parser = ChineseArgumentParser(
         prog="nuclearctl.py",
@@ -236,6 +416,11 @@ def build_parser() -> ChineseArgumentParser:
     gate_parser = subparsers.add_parser("gate", help="执行阶段门禁", description="执行阶段门禁；默认递归检查全部前置阶段。")
     gate_parser.add_argument("stage", choices=STAGES, metavar="阶段", help="阶段名: " + ", ".join(STAGES))
     gate_parser.add_argument("--no-dependencies", action="store_true", help="仅检查当前阶段，不递归检查前置阶段")
+    gate_parser.add_argument(
+        "--trace",
+        action="store_true",
+        help="把这次判定写成运行轨迹；环境变量 NUCLEAR_DEV_TRACE=1 也可默认打开",
+    )
     gate_parser.add_argument("--json", action="store_true", help="以 JSON 输出结果")
     gate_parser.set_defaults(handler=command_gate)
 
@@ -262,6 +447,32 @@ def build_parser() -> ChineseArgumentParser:
     manifest_parser.add_argument("--json", action="store_true", help="以 JSON 输出结果")
     manifest_parser.set_defaults(handler=command_manifest)
 
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="体检工作区",
+        description="一次检查环境、工作区结构、阶段进展、运行轨迹链与审计链。只读，不写文件。",
+    )
+    doctor_parser.add_argument("--json", action="store_true", help="以 JSON 输出结果")
+    doctor_parser.set_defaults(handler=command_doctor)
+
+    trace_parser = subparsers.add_parser(
+        "trace",
+        help="查看与校验运行轨迹",
+        description="查看门禁运行轨迹；轨迹是线索不是证据，不参与门禁判定。",
+    )
+    trace_subparsers = trace_parser.add_subparsers(dest="trace_command", metavar="轨迹子命令")
+    trace_list = trace_subparsers.add_parser("list", help="列出轨迹摘要", description="按序号倒序列出轨迹摘要。")
+    trace_list.add_argument("--limit", type=int, metavar="条数", help="最多列出多少条")
+    trace_list.add_argument("--json", action="store_true", help="以 JSON 输出结果")
+    trace_list.set_defaults(handler=command_trace_list)
+    trace_show = trace_subparsers.add_parser("show", help="显示一条轨迹", description="按标识显示一条完整轨迹。")
+    trace_show.add_argument("trace_id", metavar="轨迹标识", help="例如 TRC-20261107T055404Z-4f3c9a")
+    trace_show.add_argument("--json", action="store_true", help="以 JSON 输出结果")
+    trace_show.set_defaults(handler=command_trace_show)
+    trace_verify = trace_subparsers.add_parser("verify", help="校验轨迹链", description="校验轨迹序号、摘要与前序链接；产物变化单独报告为偏离。")
+    trace_verify.add_argument("--json", action="store_true", help="以 JSON 输出结果")
+    trace_verify.set_defaults(handler=command_trace_verify)
+
     return parser
 
 
@@ -274,10 +485,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "evidence" and not getattr(args, "evidence_command", None):
         print("错误: evidence 需要子命令 add；使用 evidence --help 查看帮助。", file=sys.stderr)
         return 2
+    if args.command == "trace" and not getattr(args, "trace_command", None):
+        print("错误: trace 需要子命令 list/show/verify；使用 trace --help 查看帮助。", file=sys.stderr)
+        return 2
     root = root_path(args.root)
     try:
         return int(args.handler(args, root))
     except NuclearError as exc:
+        print("错误: %s" % exc, file=sys.stderr)
+        return 2
+    except tracing.TraceError as exc:
         print("错误: %s" % exc, file=sys.stderr)
         return 2
     except OSError as exc:
