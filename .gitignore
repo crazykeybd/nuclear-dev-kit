@@ -5,10 +5,13 @@ dist/
 .nuclear-dev/
 .nuclear-dev-kit-backups/
 
-# 根目录只允许 README.md 与 INSTALL.md 入库，其余 md 属于内部文档
+# 根目录只允许面向使用者的少数几份 md 入库，其余 md 属于内部文档
+# README/INSTALL 是使用说明，CONTRIBUTING/CHANGELOG 是贡献与变更说明，四者都是对外文件
 /*.md
 !/README.md
 !/INSTALL.md
+!/CONTRIBUTING.md
+!/CHANGELOG.md
 
 # nuclear-dev-agent 主体包的本机产物不入库
 /nuclear-dev-agent/node_modules/

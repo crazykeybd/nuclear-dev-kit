@@ -33,7 +33,7 @@ SKIP_DOCS = {"工作记录.md", "开源bot调研方案.md"}
 
 
 def doc_files(extra: List[Path]) -> List[Path]:
-    files = [REPO / "README.md", REPO / "INSTALL.md"]
+    files = [REPO / "README.md", REPO / "INSTALL.md", REPO / "CONTRIBUTING.md", REPO / "CHANGELOG.md"]
     files.extend(sorted((REPO / "skills").glob("*/SKILL.md")))
     files.extend(sorted((REPO / "skills").glob("*/references/*.md")))
     # 本仓库自己的部署说明；nuclear-dev-agent/ 是主体包（上游来源见其 FORK.md），不在这里扫。

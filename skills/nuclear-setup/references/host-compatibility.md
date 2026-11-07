@@ -86,7 +86,7 @@ python3 <本包>/skills/nuclear-install/scripts/register.py claude \
 | nuclear-design | 5964 | 2228 |
 | nuclear-test | 5935 | 2257 |
 | nuclear-release | 5810 | 2382 |
-| nuclear-dev | 5524 | 2668 |
+| nuclear-dev | 6040 | 2152 |
 | nuclear-setup | 2370 | 5822 |
 
 该上限由 `tests/test_skill_limits.py` 在回归测试中强制检查；新增或扩写 SKILL.md 时若超限，测试会失败。
