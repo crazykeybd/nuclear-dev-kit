@@ -5,7 +5,8 @@
 
 1. 文档中出现的每个 `nuclear_*` 标识符，必须是 `nuclearproto.surface` 中真实定义的 MCP 工具；
 2. `nuclearlib.STAGE_ARTIFACTS` 中的每个阶段产物路径，必须出现在 `artifact-schema.md`；
-3. `nuclearlib.STAGES` 中的每个阶段名，必须至少在一份用户文档中出现。
+3. `nuclearlib.STAGES` 中的每个阶段名，必须至少在一份用户文档中出现；
+4. 每个阶段 Skill 指向领域参考索引，且领域参考文档之间存在有效相对链接。
 
 本脚本只读，不修改任何文件，也不触碰冻结内核的判定逻辑。退出码：0 通过，1 有不一致。
 """
@@ -89,6 +90,29 @@ def check_stage_coverage(files: List[Path]) -> List[str]:
     return problems
 
 
+def check_domain_references(files: List[Path]) -> List[str]:
+    """阶段 Skill 必须指向领域索引；references/ 内的相对 md 链接必须指向真实文件。"""
+    problems: List[str] = []
+    stage_skills = {
+        "nuclear-" + stage: REPO / "skills" / ("nuclear-" + stage) / "SKILL.md"
+        for stage in nuclearlib.STAGES
+    }
+    for name, path in stage_skills.items():
+        if path.is_file() and "../nuclear-dev/references/domain-index.md" not in path.read_text(encoding="utf-8"):
+            problems.append("%s 未指向领域参考索引 domain-index.md" % display_path(path))
+    link_re = re.compile(r"\[[^\]]*\]\(([^)#]+\.md)(?:#[^)]*)?\)")
+    refs_dir = REPO / "skills" / "nuclear-dev" / "references"
+    for path in sorted(refs_dir.glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        for target in link_re.findall(text):
+            if "://" in target or target.startswith("/"):
+                continue
+            resolved = (path.parent / target).resolve()
+            if not resolved.is_file():
+                problems.append("%s 的链接 %s 指向不存在的文档" % (display_path(path), target))
+    return problems
+
+
 def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="check_docs.py",
@@ -117,6 +141,7 @@ def main(argv: List[str]) -> int:
     problems.extend(check_tool_names(files, tools))
     problems.extend(check_artifact_paths())
     problems.extend(check_stage_coverage(files))
+    problems.extend(check_domain_references(files))
 
     if problems:
         for item in problems:

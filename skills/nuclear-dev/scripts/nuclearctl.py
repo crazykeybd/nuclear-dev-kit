@@ -128,6 +128,46 @@ def command_status(args: argparse.Namespace, root: Path) -> int:
     return 0
 
 
+def command_domain(args: argparse.Namespace, root: Path) -> int:
+    """只读列出一个阶段的领域参考；不参与门禁判定，也不要求项目已初始化。"""
+    stage = args.stage
+    reference_dir = Path(__file__).resolve().parents[1] / "references"
+    catalog = {
+        "plan": ("安全分级与 V&V 等级、适用标准谱系", ["safety-classification.md", "nuclear-standards.md"]),
+        "requirements": ("物理模型、核数据与需求模式", ["physical-models.md", "nuclear-data.md", "requirement-patterns.md"]),
+        "design": ("数值方法、离散守恒与并行设计", ["numerical-methods.md", "discretization-conservation.md", "parallel-design.md"]),
+        "implementation": ("HPC 实现与可复现构建", ["hpc-implementation.md", "reproducible-builds.md"]),
+        "test": ("测试模式与基准题目录", ["test-patterns.md", "benchmark-catalog.md"]),
+        "vv": ("V&V 方法与不确定性量化", ["vv-methods.md", "uncertainty-quantification.md"]),
+        "release": ("配置与核数据冻结", ["configuration-and-data-freeze.md"]),
+    }
+    summary, files = catalog[stage]
+    references = []
+    for name in files:
+        path = reference_dir / name
+        references.append({"name": name, "path": str(path), "exists": path.is_file()})
+    payload = {
+        "ok": True,
+        "command": "domain",
+        "stage": stage,
+        "label": STAGE_LABELS[stage],
+        "summary": summary,
+        "index": str(reference_dir / "domain-index.md"),
+        "references": references,
+        "advisory_only": True,
+    }
+    if args.json:
+        emit_json(payload)
+    else:
+        print("阶段: %s (%s)" % (stage, STAGE_LABELS[stage]))
+        print("领域重点: %s" % summary)
+        print("总索引: %s" % payload["index"])
+        print("参考文档（仅指导，不参与门禁判定）:")
+        for item in references:
+            print("  - %s [%s]" % (item["path"], "存在" if item["exists"] else "缺失"))
+    return 0
+
+
 def command_validate(args: argparse.Namespace, root: Path) -> int:
     errors = validate_project(root)
     payload = {
@@ -408,6 +448,15 @@ def build_parser() -> ChineseArgumentParser:
     status_parser = subparsers.add_parser("status", help="查看各阶段状态", description="查看各阶段状态；不递归检查前置阶段。")
     status_parser.add_argument("--json", action="store_true", help="以 JSON 输出结果")
     status_parser.set_defaults(handler=command_status)
+
+    domain_parser = subparsers.add_parser(
+        "domain",
+        help="查看阶段领域参考",
+        description="只读列出一个阶段的领域参考路径与摘要；不参与门禁判定，不要求项目已初始化。",
+    )
+    domain_parser.add_argument("stage", choices=STAGES, metavar="阶段", help="阶段名: " + ", ".join(STAGES))
+    domain_parser.add_argument("--json", action="store_true", help="以 JSON 输出结果")
+    domain_parser.set_defaults(handler=command_domain)
 
     validate_parser = subparsers.add_parser("validate", help="校验工作区", description="校验项目结构、产物、证据哈希和已登记批准。")
     validate_parser.add_argument("--json", action="store_true", help="以 JSON 输出结果")

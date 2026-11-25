@@ -3,6 +3,7 @@
  * them. The page shows what a person must decide and what the work must fix, and quotes the kit's messages verbatim.
  */
 import { useState } from 'react'
+import { STAGE_AGENTS } from '../nuclear/index.ts'
 import { usePoll, type NuclearProjectRow, type NuclearStageRow, type TicketNuclear } from './api.ts'
 import { Button, Dot, Icon, Tag, type DotState, type TagTone } from './controls.tsx'
 import { useAction, usePanel } from './provider.tsx'
@@ -26,6 +27,9 @@ function StageRow({ report, compact }: { report: NuclearStageRow; compact: boole
         <span>{t(`stage.${report.stage}`)}</span>
         <Tag tone={TONE[report.state]}>{valueLabel(t, 'nuclearState', report.state)}</Tag>
         {!compact && <span className="dt-hint dt-mono">{report.artifact}</span>}
+        <span className="dt-hint" title={STAGE_AGENTS[report.stage].domainRefs.join(', ')}>
+          {t('nuclearDomainRefs', { count: STAGE_AGENTS[report.stage].domainRefs.length })}
+        </span>
       </div>
       {shown.length > 0 && <ul className="dt-list dt-hints">{shown.map((error, index) => <li key={index}
         className="dt-hint dt-mono">{error}</li>)}</ul>}

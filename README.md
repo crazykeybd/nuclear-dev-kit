@@ -2,9 +2,10 @@
 
 `nuclear-dev-kit` 把核能数值软件的七阶段研发流程封装为可移植的 Agent Skill 包。它面向核工程、科学计算和受控软件研发场景，提供统一的阶段产物 Schema、证据登记、需求-设计-实现-测试-V&V 追溯，以及逐阶段人工批准停止点。
 
-仓库由两部分组成：
+仓库由三部分组成：
 
 - `skills/`：十个 `nuclear-*` Skill 与唯一门禁实现 `nuclearlib.py`，可装进 Claude Code、Codex、opencode、Reasonix、DeepSeek Harness 或任意 Agent；
+- [`process-assets/`](process-assets/README.md)：从过程资产库 V5.0 切分出的 40 个正式文档模板/指引 Skill（p1–p9 + 路由器），按七阶段映射，独立安装，不参与门禁判定；
 - [`nuclear-dev-agent/`](nuclear-dev-agent/)：仓库主体，一个 DeepSeek Harness bundle（由 `superagent` 原型改造，来源见 [FORK.md](nuclear-dev-agent/FORK.md)），把七阶段装进「接活 → 开 Ticket → 独立 Session 执行 → 回帖」的链路，并带网页面板；一条命令部署见下文「智能体」一节。
 
 > 不替代签署、监管判断或真实测试；不生成批准；不伪造结果；门禁失败即停止。
@@ -32,6 +33,32 @@
 | 软件发布 | `nuclear-release` | `.nuclear-dev/stages/release/release.json` |
 
 总入口是 `nuclear-dev`；首次安装、升级和多宿主部署用 `nuclear-install`（自动检测宿主、预览后写入），工作区初始化与底层安装器由 `nuclear-setup` 负责。每个阶段 Skill 都先运行只读检查和递归门禁，再开展真实工程活动；阶段产物变化后，旧的人工批准会自动失效。
+
+## 核工程领域参考（AI 原生按需加载）
+
+七阶段再提供一层**领域参考**，把核工程专业知识按阶段放进 `skills/nuclear-dev/references/`，供 Agent 在进入阶段时按需读取：
+
+- 总索引：[domain-index.md](skills/nuclear-dev/references/domain-index.md)，列出"阶段 → 触发场景 → 参考文档"。
+- 覆盖：安全分级与适用标准、物理模型与核数据、数值方法与守恒、HPC 与可复现构建、测试模式与基准题、V&V 与不确定性量化、配置与数据冻结。
+- 只读命令：`python3 nuclear-dev-kit/skills/nuclear-dev/scripts/nuclearctl.py --root <项目> domain <阶段> --json` 列出该阶段参考路径与摘要，无需项目初始化。
+- 领域参考是**工程指导，不参与门禁判定**；标准版本、基准题与核数据以项目适用法规和持证人员判断为准。阶段 Skill 与 `nuclear-dev-agent` 的阶段智能体都会先读取它们。
+- 来源已联网核对（2026-11-25）：IEC/IEEE/ASME/IAEA/DOE/NRC 标准谱系、OECD/NEA 基准题族、ENDF/B-VIII.x、JEFF-3.3/4.0、JENDL-5、CENDL-3.2 等；详见各参考文档内链接。
+
+## 过程资产库（正式文档模板）
+
+[`process-assets/`](process-assets/README.md) 是把「过程资产库 V5.0」的 40 个模板/指引转成的独立 Skill 包，按 p1–p9 组织，并映射到七阶段（详见 [STAGE-MAPPING.md](process-assets/STAGE-MAPPING.md)）。它回答"这个阶段要交什么正式文档、用什么母版、填哪些字段"；七阶段门禁 Skill 回答"怎么受控地做、门禁怎么判"，两者互补但不互相替代。
+
+```bash
+# 只读查询：列出某阶段的资产 Skill
+python3 process-assets/scripts/assetctl.py stage test --json
+
+# 独立安装（默认 dry-run，不覆盖 nuclear-* Skill）
+python3 process-assets/scripts/install.py dsh --scope global --yes --json
+```
+
+- 路由器 `process-asset-router` 按用户提到的阶段/文档类型分发；Agent 先转调它再生成文档。
+- 资产 Skill 生成的 DOCX/XLSX/PPTX 若被阶段产物引用，仍需用 `nuclearctl.py evidence add` 登记真实证据；文档本身不等于门禁通过，评审单签字仍由真人完成。
+- 该包由 `tools/split_process_assets.py` 从合并导出确定性生成，`--check` 可校验一致性。
 
 ## 快速开始
 
@@ -275,6 +302,8 @@ nuclear-dev-kit/
   skills/
     nuclear-dev/             # 总入口、共享 Schema、冻结内核、MCP/A2A 适配层
       references/            # workflow / artifact-schema / mcp / a2a / threat-model / tracing
+                             # + 领域参考：domain-index / safety-classification / nuclear-standards /
+                             #   physical-models / nuclear-data / numerical-methods / benchmark-catalog 等 15 篇
       scripts/
         nuclearlib.py        # 唯一门禁实现
         nuclearctl.py        # 门禁 CLI（含 doctor 与 trace 子命令）
@@ -294,6 +323,11 @@ nuclear-dev-kit/
     check_reasonix_deploy.py # 校验 Reasonix 部署片段
     check_nuclear_dev_agent.py # 校验 agent 包的身份、核能模块与来源记录
     deploy_nuclear_dev_agent.py      # 一条命令部署「核能门禁 + nuclear-dev-agent」
+  process-assets/                    # 独立包：40 个过程资产文档模板 Skill（p1–p9 + 路由器）
+    README.md / STAGE-MAPPING.md     # 包说明与七阶段映射
+    skills/<pX-*>/SKILL.md           # 40 个正式文档模板/指引
+    scripts/assetctl.py              # 只读查询（list/stage/show）
+    scripts/install.py               # 独立安装器（默认 dry-run）
   nuclear-dev-agent/                 # 本仓库主体：核能软件开发智能体（来源与改动见 FORK.md）
     FORK.md                          # 上游基点提交与本仓库相对上游的改动清单
     src/nuclear/                     # 七阶段表与 nuclearlib.py 的调用桥接

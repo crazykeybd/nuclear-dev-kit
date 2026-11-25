@@ -866,6 +866,7 @@ const TEXT = {
   nuclearStagesTitle: ['核能七阶段', 'Nuclear stages'],
   nuclearStagesHint: ['这个工单目录的门禁状态；判定由 nuclearlib.py 给出，批准只能由人签署。',
     'The gate state of this Ticket\'s directory; nuclearlib.py judges it and only a person signs an approval.'],
+  nuclearDomainRefs: ['{count} 篇领域参考（仅指导，不参与判定）', '{count} domain references (guidance only, not judged)'],
   nuclearOpenBoard: ['看全部工作区', 'See all workspaces'],
   nuclearAttentionTitle: ['核能阶段', 'Nuclear stages'],
   nuclearAttentionHint: ['门禁停住的阶段，以及等谁处理。', 'The stage the gate stops on, and who has to act.'],

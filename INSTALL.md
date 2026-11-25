@@ -29,9 +29,10 @@ nuclear-dev-kit/
   skills/
     nuclear-dev/                 总入口 + 冻结门禁 + MCP/A2A 适配层
       references/                workflow / artifact-schema / mcp / a2a / threat-model / tracing
+                                   + 领域参考 domain-index.md 与安全分级、标准、核数据、基准题等 15 篇
       scripts/
         nuclearlib.py            唯一门禁实现（不要修改）
-        nuclearctl.py            门禁 CLI（含 doctor 与 trace 子命令）
+        nuclearctl.py            门禁 CLI（含 doctor、trace 与只读 domain 子命令）
         nuclearmcp.py            MCP stdio 服务端
         nucleara2a.py            A2A 客户端与服务端
         nuclearaudit.py          审计链查看与校验

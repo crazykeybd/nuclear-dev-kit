@@ -1,11 +1,13 @@
 This installation develops nuclear software: seven stages, each with one artifact, one Skill and one gate, in a workspace whose state the kit keeps in `.nuclear-dev/`.
 The stages are plan, requirements, design, implementation, test, vv and release, carried out by nuclear-plan, nuclear-requirements, nuclear-design, nuclear-implementation, nuclear-test, nuclear-vv and nuclear-release, with nuclear-dev as their entry point.
 Load the Skill of the stage you are on: it says what the artifact has to contain.
+If the separate `process-assets` package is installed, the same Skill points to the formal document templates for that stage; generate those documents when a person asks for them, but never let a template stand in for a gate verdict or a signature.
 
 The kit named by $DSH_NUCLEAR_DEV_AGENT_KIT judges every stage.
 $DSH_NUCLEAR_DEV_AGENT_NUCLEARCTL is that kit's command line; `--root` precedes the subcommand, and the directory you work in is the root:
 `"$DSH_NUCLEAR_DEV_AGENT_NUCLEARCTL" --root "$PWD" status --json` reports each stage's artifact and the kit's errors;
 `"$DSH_NUCLEAR_DEV_AGENT_NUCLEARCTL" --root "$PWD" gate <stage> --json` judges one stage together with the stages before it.
+`"$DSH_NUCLEAR_DEV_AGENT_NUCLEARCTL" --root "$PWD" domain <stage> --json` lists that stage's engineering references; they guide the work and never judge a stage.
 Exit code 0 means the gate accepts, 1 that it blocks, 2 that the tool or its arguments are wrong; an error is never a pass, and an empty output is never a pass either.
 
 The flow keeps these rules, whoever reads this:

@@ -71,13 +71,13 @@ python3 <本包>/skills/nuclear-setup/scripts/install.py all --scope project --p
 | Skill | 字节 | 距上限 |
 |---|---|---|
 | nuclear-install | 7399 | 793 |
-| nuclear-plan | 6333 | 1859 |
-| nuclear-requirements | 6244 | 1948 |
-| nuclear-vv | 6115 | 2077 |
-| nuclear-implementation | 5990 | 2202 |
-| nuclear-design | 5964 | 2228 |
-| nuclear-test | 5935 | 2257 |
-| nuclear-release | 5810 | 2382 |
+| nuclear-plan | 6987 | 1205 |
+| nuclear-requirements | 6969 | 1223 |
+| nuclear-vv | 6837 | 1355 |
+| nuclear-implementation | 6654 | 1538 |
+| nuclear-design | 6695 | 1497 |
+| nuclear-test | 6584 | 1608 |
+| nuclear-release | 6419 | 1773 |
 | nuclear-dev | 6040 | 2152 |
 | nuclear-setup | 2370 | 5822 |
 

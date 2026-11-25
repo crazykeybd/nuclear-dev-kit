@@ -214,7 +214,9 @@ class OtherHostSnippetTest(unittest.TestCase):
         completed, payload = run_register("reasonix", "--scope", "global")
         self.assertEqual(completed.returncode, 0, completed.stderr)
         config = Path(payload["config_path"]).resolve()
-        self.assertTrue(config.is_relative_to(support.isolated_home().resolve()), config)
+        home = support.isolated_home().resolve()
+        # Path.is_relative_to 是 3.9+；本包声明支持 3.7.3，使用 3.7 兼容写法。
+        self.assertTrue(config == home or home in config.parents, config)
 
 
 class ReasonixConfigWriteTest(unittest.TestCase):

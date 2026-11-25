@@ -110,7 +110,14 @@ python3 <SKILL_DIR>/../nuclear-dev/scripts/nuclearctl.py --root <项目> validat
 
 `.nuclear-dev/approvals/release.json` 只能由真实人员创建和签署，字段包括 `stage`、`approver`、`decision`、`date`、`scope`、`artifact_sha256` 和 `statement`，且 `approver.actor_type` 必须为 `human`。Agent、Skill、安装器和 CLI 都不得创建、修改、推断或自动补全批准文件；产物变化后旧批准失效。
 
-## 10. 共享 Schema 引用
+## 10. 领域参考（仅指导，不改判定）
+
+动笔前按 [领域参考索引](../nuclear-dev/references/domain-index.md) 读取本阶段参考：[配置与数据冻结](../nuclear-dev/references/configuration-and-data-freeze.md)。它们提供核工程指导，不参与门禁判定；不适用项写入 `open_items`。
+
+
+若项目已安装独立包 `process-assets/`，按 [阶段映射](../../process-assets/STAGE-MAPPING.md) 用 `python3 ../../process-assets/scripts/assetctl.py stage release --json` 列出本阶段要交付的正式文档模板；仅生成工程文档，不参与门禁判定。
+
+## 11. 共享 Schema 引用
 
 - [阶段产物 Schema 与门禁契约](../nuclear-dev/references/artifact-schema.md)
 - [七阶段受控工作流](../nuclear-dev/references/workflow.md)
